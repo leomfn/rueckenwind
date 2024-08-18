@@ -1,0 +1,39 @@
+<style>
+    .compass {
+        border: 1px solid black;
+        border-radius: 50%;
+        width: 150px;
+        height: 150px;
+        justify-content: center;
+        align-items: center;
+        display: flex;
+        position: relative;
+        margin: 1rem;
+    }
+
+    .direction {
+        position: absolute;
+    }
+
+    .arrow {
+        font-size: 4rem;
+        rotate: {{.CurrentWindDegrees}}deg;
+    }
+
+    .info {
+        margin: 1rem;
+        font-size: x-large;
+    }
+</style>
+<div class="compass">
+    <div class="direction" style="left: 50%; top: 10px; transform: translateX(-50%);">N</div>
+    <div class="direction" style="top: 50%; right: 10px; transform: translateY(-50%);">E</div>
+    <div class="direction" style="left: 50%; bottom: 10px; transform: translateX(-50%);">S</div>
+    <div class="direction" style="top: 50%; left: 10px; transform: translateY(-50%);">W</div>
+    <div class="arrow">↓</div>
+</div>
+<div class="info">
+    <div>🌡️ {{.CurrentTemperature}} °C</div>
+    <div>🌬️ {{.CurrentWindSpeed}} km/h from {{.CurrentWindDirection}}</div>
+    <div>🌄 Ride until {{.SunsetTime}}</div>
+</div>

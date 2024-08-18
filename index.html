@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windeows XP</title>
+    <style>
+        .header {
+            /* animation: cyclist 4s linear infinite; */
+            position: absolute;
+            top: 15px;
+            white-space: nowrap;
+            font-size: 3rem;
+        }
+
+        /* @keyframes cyclist {
+            0% {
+                left: 100%;
+            }
+
+            100% {
+                left: -10%;
+            }
+        } */
+    </style>
+</head>
+
+<body style="display: flex; align-items: center; flex-direction: column; margin: 0; overflow: hidden; height: 100vh; justify-content: center; background-color: #f0f0f0;">
+    <div class="header">🚴💨🍃</div>
+    <div id="content" style="display: flex; align-items: center; flex-direction: column; justify-content: space-evenly; height: 75%; overflow: hidden;"></div>
+    <script>
+        navigator.geolocation.getCurrentPosition(position => {
+            const request = new Request(`/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+            fetch(request)
+                .then(res => res.text())
+                .then(data => {
+                    document.getElementById("content").innerHTML = data;
+                })
+                .catch(error => console.error(error))
+        })
+    </script>
+</body>
+
+</html>
