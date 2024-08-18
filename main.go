@@ -12,11 +12,6 @@ import (
 	"time"
 )
 
-type Page struct {
-	Title string
-	Body  []byte
-}
-
 type Coord struct {
 	Lon float64 `json:"lon"`
 	Lat float64 `json:"lat"`
@@ -35,9 +30,10 @@ type Main struct {
 	TempMin     float64 `json:"temp_min"`
 	TempMax     float64 `json:"temp_max"`
 	Pressure    int     `json:"pressure"`
-	Humidity    int     `json:"humidity"`
 	SeaLevel    int     `json:"sea_level"`
 	GroundLevel int     `json:"grnd_level"`
+	Humidity    int     `json:"humidity"`
+	TempKf      float64 `json:"temp_kf"`
 }
 
 type Wind struct {
@@ -70,7 +66,7 @@ func (w Wind) directionString() string {
 }
 
 type Rain struct {
-	OneHour float64 `json:"1h"`
+	ThreeHours float64 `json:"3h"`
 }
 
 type Clouds struct {
@@ -78,33 +74,44 @@ type Clouds struct {
 }
 
 type Sys struct {
-	Type    int    `json:"type" `
-	Id      int    `json:"id"`
-	Country string `json:"country"`
-	Sunrise int    `json:"sunrise"`
-	Sunset  int    `json:"sunset"`
+	Pod string `json:"pod"`
 }
 
-type CurrentWeather struct {
-	Coord      Coord     `json:"coord"`
-	Weather    []Weather `json:"weather"`
-	Base       string    `json:"base"`
-	Main       Main      `json:"main"`
-	Visibility int       `json:"visibility"`
-	Wind       Wind      `json:"wind"`
-	Rain       Rain      `json:"rain"`
-	Clouds     Clouds    `json:"clouds"`
-	Timestamp  int       `json:"dt"`
-	Sys        Sys       `json:"sys"`
-	Timezone   int       `json:"timezone"`
-	Id         int       `json:"id"`
-	Name       string    `json:"name"`
-	COD        int       `json:"cod"`
+type City struct {
+	Id         int64  `json:"id"`
+	Name       string `json:"name"`
+	Coord      Coord  `json:"coord"`
+	Country    string `json:"country"`
+	Population int    `json:"population"`
+	Timezone   int    `json:"timezone"`
+	Sunrise    int    `json:"sunrise"`
+	Sunset     int    `json:"sunset"`
 }
 
-func (w CurrentWeather) SunsetLocalTime() string {
-	utcTime := time.Unix(int64(w.Sys.Sunset), 0).UTC()
-	return utcTime.Add(time.Duration(w.Timezone) * time.Second).Format("15:04")
+type ForecastEntry struct {
+	Timestamp     int       `json:"dt"`
+	Main          Main      `json:"main"`
+	Weather       []Weather `json:"weather"`
+	Clouds        Clouds    `json:"clouds"`
+	Wind          Wind      `json:"wind"`
+	Visibility    int       `json:"visibility"`
+	Pop           float64   `json:"pop"`
+	Rain          Rain      `json:"rain"`
+	Sys           Sys       `json:"sys"`
+	TimestampText string    `json:"dt_txt"`
+}
+
+type WeatherForecast struct {
+	List    []ForecastEntry `json:"list"`
+	COD     string          `json:"cod"`
+	Message int             `json:"message"`
+	Count   int             `json:"cnt"`
+	City    City            `json:"city"`
+}
+
+func (w WeatherForecast) SunsetLocalTime() string {
+	utcTime := time.Unix(int64(w.City.Sunset), 0).UTC()
+	return utcTime.Add(time.Duration(w.City.Timezone) * time.Second).Format("15:04")
 
 }
 
@@ -129,7 +136,8 @@ func getWeather(lat float64, lon float64) (WeatherSummary, error) {
 		log.Fatal("Environment variable OPEN_WEATHER_MAP_API_KEY not found.")
 	}
 
-	owmUrl := fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?lat=%f&lon=%f&appid=%s&units=metric", lat, lon, owmApiKey)
+	// Request weather forecast for next 12 hours in 3-hour blocks (4 items in total)
+	owmUrl := fmt.Sprintf("https://api.openweathermap.org/data/2.5/forecast?lat=%f&lon=%f&appid=%s&units=metric&cnt=4", lat, lon, owmApiKey)
 
 	resp, err := http.Get(owmUrl)
 	if err != nil {
@@ -137,18 +145,20 @@ func getWeather(lat float64, lon float64) (WeatherSummary, error) {
 	}
 	defer resp.Body.Close()
 
-	var currentWeather CurrentWeather
+	var weatherForecast WeatherForecast
 
-	if err := json.NewDecoder(resp.Body).Decode(&currentWeather); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&weatherForecast); err != nil {
 		log.Println(err)
 	}
+
+	currentWeather := weatherForecast.List[0]
 
 	weatherSummary := WeatherSummary{
 		CurrentTemperature:   int(math.Round(currentWeather.Main.Temp)),
 		CurrentWindSpeed:     int(math.Round(currentWeather.Wind.Speed * 3.6)),
 		CurrentWindDirection: currentWeather.Wind.directionString(),
 		CurrentWindDegrees:   currentWeather.Wind.Deg,
-		SunsetTime:           currentWeather.SunsetLocalTime(),
+		SunsetTime:           weatherForecast.SunsetLocalTime(),
 	}
 
 	return weatherSummary, nil
