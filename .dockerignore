@@ -1,2 +1,4 @@
 .env
 .gitignore
+__debug_*
+deploy.sh

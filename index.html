@@ -6,12 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Windeows XP</title>
     <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
         .header {
-            /* animation: cyclist 4s linear infinite; */
-            position: absolute;
+            animation: cyclist 4s linear infinite;
+            position: fixed;
             top: 15px;
             white-space: nowrap;
-            font-size: 3rem;
+            font-size: x-large;
         }
 
         .compass {
@@ -31,7 +35,7 @@
         }
 
         .arrow {
-            font-size: 4rem;
+            font-size: 6rem;
             position: absolute;
         }
 
@@ -41,23 +45,23 @@
 
         .info {
             margin: 1rem;
-            font-size: x-large;
+            font-size: large;
         }
 
-        /* @keyframes cyclist {
+        @keyframes cyclist {
             0% {
                 left: 100%;
             }
 
             100% {
-                left: -10%;
+                left: -50%;
             }
-        } */
+        }
     </style>
 </head>
 
 <body style="display: flex; align-items: center; flex-direction: column; margin: 0; overflow: hidden; height: 100vh; justify-content: center; background-color: #f0f0f0;">
-    <div class="header">🚴💨🍃</div>
+    <div class="header">🚴🚴‍♂️💨🍃</div>
     <div id="content" style="display: flex; align-items: center; flex-direction: column; justify-content: space-evenly; height: 75%; overflow: hidden;">
         <div class="compass">
             <div class="direction" style="left: 50%; top: 10px; transform: translateX(-50%);">N</div>
@@ -70,7 +74,7 @@
         <div class="info">
             <div>🌡️ <span id="currentTemp">?</span> °C</div>
             <div>💦 <span id="currentRain">?</span> (<span id="futureRain">?</span>)</div>
-            <div>🌬 <span id="currentWindSpeed">?</span> (💥 <span id="currentWindGust">?</span>) km/h from <span id="currentWindDir">?</span></div>
+            <div>🌬 <span id="currentWindSpeed">?</span> (💥<span id="currentWindGust">?</span>) km/h from <span id="currentWindDir">?</span></div>
             <div>🌄 Ride until <span id="sunsetTime">?</span></div>
         </div>
     </div>
