@@ -14,6 +14,36 @@
             font-size: 3rem;
         }
 
+        .compass {
+            border: 1px solid black;
+            border-radius: 50%;
+            width: 150px;
+            height: 150px;
+            justify-content: center;
+            align-items: center;
+            display: flex;
+            position: relative;
+            margin: 1rem;
+        }
+
+        .direction {
+            position: absolute;
+        }
+
+        .arrow {
+            font-size: 4rem;
+            position: absolute;
+        }
+
+        #futureWindArrow {
+            color: tomato;
+        }
+
+        .info {
+            margin: 1rem;
+            font-size: x-large;
+        }
+
         /* @keyframes cyclist {
             0% {
                 left: 100%;
@@ -28,14 +58,50 @@
 
 <body style="display: flex; align-items: center; flex-direction: column; margin: 0; overflow: hidden; height: 100vh; justify-content: center; background-color: #f0f0f0;">
     <div class="header">🚴💨🍃</div>
-    <div id="content" style="display: flex; align-items: center; flex-direction: column; justify-content: space-evenly; height: 75%; overflow: hidden;"></div>
+    <div id="content" style="display: flex; align-items: center; flex-direction: column; justify-content: space-evenly; height: 75%; overflow: hidden;">
+        <div class="compass">
+            <div class="direction" style="left: 50%; top: 10px; transform: translateX(-50%);">N</div>
+            <div class="direction" style="top: 50%; right: 10px; transform: translateY(-50%);">E</div>
+            <div class="direction" style="left: 50%; bottom: 10px; transform: translateX(-50%);">S</div>
+            <div class="direction" style="top: 50%; left: 10px; transform: translateY(-50%);">W</div>
+            <div class="arrow" id="futureWindArrow">?</div>
+            <div class="arrow" id="currentWindArrow">?</div>
+        </div>
+        <div class="info">
+            <div>🌡️ <span id="currentTemp">?</span> °C</div>
+            <div>💦 <span id="currentRain">?</span> (<span id="futureRain">?</span>)</div>
+            <div>🌬 <span id="currentWindSpeed">?</span> (💥 <span id="currentWindGust">?</span>) km/h from <span id="currentWindDir">?</span></div>
+            <div>🌄 Ride until <span id="sunsetTime">?</span></div>
+        </div>
+    </div>
     <script>
+        const rainSymbol = intensity => {
+            switch (intensity) {
+                case 0: return "⛅️";
+                case 1: return "🌦️";
+                case 2: return "🌧️";
+                case 3: return "🌊";
+            }
+        }
+
         navigator.geolocation.getCurrentPosition(position => {
             const request = new Request(`/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
             fetch(request)
-                .then(res => res.text())
+                .then(res => res.json())
                 .then(data => {
-                    document.getElementById("content").innerHTML = data;
+                    document.getElementById("currentTemp").innerText = data.temp_cur;
+                    document.getElementById("currentWindSpeed").innerText = data.wind_cur;
+                    document.getElementById("currentWindGust").innerText = data.wind_gust;
+                    document.getElementById("currentWindDir").innerText = data.wind_dir;
+                    document.getElementById("sunsetTime").innerText = data.sunset;
+                    currentWindArrow = document.getElementById("currentWindArrow")
+                    currentWindArrow.innerText = "↓"
+                    currentWindArrow.style = `transform: rotate(${data.wind_deg_current}deg)`;
+                    futureWindArrow = document.getElementById("futureWindArrow")
+                    futureWindArrow.innerText = "↓"
+                    futureWindArrow.style = `transform: rotate(${data.wind_deg_future}deg)`;
+                    document.getElementById("currentRain").innerText = rainSymbol(data.rain_current);
+                    document.getElementById("futureRain").innerText = rainSymbol(data.rain_future);
                 })
                 .catch(error => console.error(error))
         })

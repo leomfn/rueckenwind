@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"log"
 	"math"
 	"net/http"
@@ -69,6 +68,22 @@ type Rain struct {
 	ThreeHours float64 `json:"3h"`
 }
 
+// Returns rain intensity, as an integer from 0 (no rain) to 3 (heavy rain).
+func (r Rain) rainIntensity() int {
+	hourlyRain := r.ThreeHours / 3
+
+	switch {
+	case hourlyRain == 0:
+		return 0
+	case hourlyRain < 0.1:
+		return 1
+	case hourlyRain < 0.5:
+		return 2
+	default:
+		return 3
+	}
+}
+
 type Clouds struct {
 	All int `json:"all"`
 }
@@ -122,7 +137,11 @@ type WeatherSummary struct {
 	// Wind speed in km/h
 	CurrentWindSpeed     int    `json:"wind_cur"`
 	CurrentWindDirection string `json:"wind_dir"`
-	CurrentWindDegrees   int    `json:"wind_deg"`
+	CurrentWindDegrees   int    `json:"wind_deg_current"`
+	FutureWindDegrees    int    `json:"wind_deg_future"`
+	CurrentWindGust      int    `json:"wind_gust"`
+	CurrentRain          int    `json:"rain_current"`
+	FutureRain           int    `json:"rain_future"`
 
 	// Local time
 	SunsetTime string `json:"sunset"`
@@ -137,7 +156,7 @@ func getWeather(lat float64, lon float64) (WeatherSummary, error) {
 	}
 
 	// Request weather forecast for next 12 hours in 3-hour blocks (4 items in total)
-	owmUrl := fmt.Sprintf("https://api.openweathermap.org/data/2.5/forecast?lat=%f&lon=%f&appid=%s&units=metric&cnt=4", lat, lon, owmApiKey)
+	owmUrl := fmt.Sprintf("https://api.openweathermap.org/data/2.5/forecast?lat=%f&lon=%f&appid=%s&units=metric&cnt=2", lat, lon, owmApiKey)
 
 	resp, err := http.Get(owmUrl)
 	if err != nil {
@@ -152,12 +171,17 @@ func getWeather(lat float64, lon float64) (WeatherSummary, error) {
 	}
 
 	currentWeather := weatherForecast.List[0]
+	nextWeather := weatherForecast.List[1]
 
 	weatherSummary := WeatherSummary{
 		CurrentTemperature:   int(math.Round(currentWeather.Main.Temp)),
 		CurrentWindSpeed:     int(math.Round(currentWeather.Wind.Speed * 3.6)),
+		CurrentWindGust:      int(math.Round(currentWeather.Wind.Gust * 3.6)),
 		CurrentWindDirection: currentWeather.Wind.directionString(),
 		CurrentWindDegrees:   currentWeather.Wind.Deg,
+		FutureWindDegrees:    nextWeather.Wind.Deg,
+		CurrentRain:          currentWeather.Rain.rainIntensity(),
+		FutureRain:           nextWeather.Rain.rainIntensity(),
 		SunsetTime:           weatherForecast.SunsetLocalTime(),
 	}
 
@@ -165,6 +189,8 @@ func getWeather(lat float64, lon float64) (WeatherSummary, error) {
 }
 
 func weatherHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s %s %s - %s", r.RemoteAddr, r.Method, r.URL, r.UserAgent())
+
 	query := r.URL.Query()
 	latStr := query.Get("lat")
 	lonStr := query.Get("lon")
@@ -191,16 +217,20 @@ func weatherHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not get current weather", http.StatusInternalServerError)
 	}
 
-	t, err := template.ParseFiles("results.html")
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Could not load results", http.StatusInternalServerError)
-	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(weatherSummary)
 
-	if err := t.Execute(w, weatherSummary); err != nil {
-		log.Println(err)
-		http.Error(w, "Could not load results", http.StatusInternalServerError)
-	}
+	// t, err := template.ParseFiles("results.html")
+	// if err != nil {
+	// 	log.Println(err)
+	// 	http.Error(w, "Could not load results", http.StatusInternalServerError)
+	// }
+
+	// if err := t.Execute(w, weatherSummary); err != nil {
+	// 	log.Println(err)
+	// 	http.Error(w, "Could not load results", http.StatusInternalServerError)
+	// }
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
@@ -215,5 +245,7 @@ func main() {
 	http.HandleFunc("/hello", statusHandler)
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/weather", weatherHandler)
+
+	log.Println("Server running on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
