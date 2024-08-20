@@ -8,6 +8,14 @@
     <style>
         body {
             font-family: 'Courier New', Courier, monospace;
+            display: flex; 
+            align-items: center; 
+            flex-direction: column; 
+            margin: -11; 
+            overflow: hidden; 
+            height: 100vh; 
+            justify-content: center;
+            background-color: seashell;
         }
 
         .header {
@@ -18,8 +26,18 @@
             font-size: x-large;
         }
 
+        .current {
+            color: black;
+            stroke: black;
+        }
+
+        .future {
+            color: grey;
+            stroke: grey;
+        }
+
         .compass {
-            border: 1px solid black;
+            border: 3px solid lightgrey;
             border-radius: 50%;
             width: 150px;
             height: 150px;
@@ -35,17 +53,18 @@
         }
 
         .arrow {
-            font-size: 6rem;
+            height: 80px;
+            width: 80px;
             position: absolute;
-        }
-
-        #futureWindArrow {
-            color: tomato;
         }
 
         .info {
             margin: 1rem;
             font-size: large;
+        }
+
+        .infoRow {
+            height: 1.5rem;
         }
 
         @keyframes cyclist {
@@ -54,61 +73,95 @@
             }
 
             100% {
-                left: -50%;
+                left: -100%;
             }
         }
     </style>
 </head>
 
-<body style="display: flex; align-items: center; flex-direction: column; margin: 0; overflow: hidden; height: 100vh; justify-content: center; background-color: #f0f0f0;">
-    <div class="header">🚴🚴‍♂️💨🍃</div>
-    <div id="content" style="display: flex; align-items: center; flex-direction: column; justify-content: space-evenly; height: 75%; overflow: hidden;">
+<body >
+    <div class="header">🚴🚴‍♂️🍃💨 Ride until <span id="sunsetTime">?</span> 🌄</div>
+
+    <div id="content"
+        style="display: flex; align-items: center; flex-direction: column; justify-content: space-evenly; height: 75%; overflow: hidden;">
+
         <div class="compass">
             <div class="direction" style="left: 50%; top: 10px; transform: translateX(-50%);">N</div>
             <div class="direction" style="top: 50%; right: 10px; transform: translateY(-50%);">E</div>
             <div class="direction" style="left: 50%; bottom: 10px; transform: translateX(-50%);">S</div>
             <div class="direction" style="top: 50%; left: 10px; transform: translateY(-50%);">W</div>
-            <div class="arrow" id="futureWindArrow">?</div>
-            <div class="arrow" id="currentWindArrow">?</div>
+
+            <div class="arrow future" id="futureWindArrow"></div>
+            <div class="arrow current" id="currentWindArrow"></div>
         </div>
         <div class="info">
-            <div>🌡️ <span id="currentTemp">?</span> °C</div>
-            <div>💦 <span id="currentRain">?</span> (<span id="futureRain">?</span>)</div>
-            <div>🌬 <span id="currentWindSpeed">?</span> (💥<span id="currentWindGust">?</span>) km/h from <span id="currentWindDir">?</span></div>
-            <div>🌄 Ride until <span id="sunsetTime">?</span></div>
+            <div class="infoRow">
+                🌡️ <span id="currentTemp" class="current">?</span> <span id="futureTemp" class="future">?</span> °C
+            </div>
+            <div class="infoRow">
+                🌬️ <span id="currentWindSpeed" class="current">?</span> <span id="futureWindSpeed" class="future">?</span> km/h
+            </div>
+            <div class="infoRow">
+               🌪️ <span id="currentWindGust">?</span> <span id="futureWindGust" class="future">?</span> km/h
+            </div>
+            <div class="infoRow">
+                💦 <span id="currentRain" class="current">?</span> <span id="futureRain" class="future">?</span>
+            </div>
         </div>
     </div>
     <script>
         const rainSymbol = intensity => {
             switch (intensity) {
-                case 0: return "⛅️";
-                case 1: return "🌦️";
-                case 2: return "🌧️";
-                case 3: return "🌊";
+                case 0: return "dry";
+                case 1: return "light";
+                case 2: return "medium";
+                case 3: return "heavy";
             }
         }
 
-        navigator.geolocation.getCurrentPosition(position => {
-            const request = new Request(`/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
-            fetch(request)
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById("currentTemp").innerText = data.temp_cur;
-                    document.getElementById("currentWindSpeed").innerText = data.wind_cur;
-                    document.getElementById("currentWindGust").innerText = data.wind_gust;
-                    document.getElementById("currentWindDir").innerText = data.wind_dir;
-                    document.getElementById("sunsetTime").innerText = data.sunset;
-                    currentWindArrow = document.getElementById("currentWindArrow")
-                    currentWindArrow.innerText = "↓"
-                    currentWindArrow.style = `transform: rotate(${data.wind_deg_current}deg)`;
-                    futureWindArrow = document.getElementById("futureWindArrow")
-                    futureWindArrow.innerText = "↓"
-                    futureWindArrow.style = `transform: rotate(${data.wind_deg_future}deg)`;
-                    document.getElementById("currentRain").innerText = rainSymbol(data.rain_current);
-                    document.getElementById("futureRain").innerText = rainSymbol(data.rain_future);
-                })
-                .catch(error => console.error(error))
-        })
+        const locationError = err => {
+            console.error("Could not get your position, which is necessary for this site.");
+        }
+
+        const locationOptions = {
+            enableHighAccuracy: true,
+        }
+
+        const arrowSvg = `
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 23V1 M10 20L12 23L14 20" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        `;
+
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                const request = new Request(`/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+                fetch(request)
+                    .then(res => res.json())
+                    .then(data => {
+                        document.getElementById("currentTemp").innerText = data.temp_current;
+                        document.getElementById("futureTemp").innerText = data.temp_future;
+                        document.getElementById("currentWindSpeed").innerText = data.wind_current;
+                        document.getElementById("futureWindSpeed").innerText = data.wind_future;
+                        document.getElementById("currentWindGust").innerText = data.wind_gust_current;
+                        document.getElementById("futureWindGust").innerText = data.wind_gust_future;
+                        document.getElementById("sunsetTime").innerText = data.sunset;
+
+                        const currentWindArrow = document.getElementById("currentWindArrow")
+                        currentWindArrow.innerHTML = arrowSvg
+                        currentWindArrow.style = `transform: rotate(${data.wind_deg_current}deg)`;
+                        const futureWindArrow = document.getElementById("futureWindArrow")
+                        futureWindArrow.innerHTML = arrowSvg
+                        futureWindArrow.style = `transform: rotate(${data.wind_deg_future}deg)`;
+
+                        document.getElementById("currentRain").innerText = rainSymbol(data.rain_current);
+                        document.getElementById("futureRain").innerText = rainSymbol(data.rain_future);
+                    })
+                    .catch(error => console.error("Something went wrong when trying to handle the weather data."))
+            },
+            locationError,
+            locationOptions
+        )
     </script>
 </body>
 

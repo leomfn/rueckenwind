@@ -41,29 +41,6 @@ type Wind struct {
 	Gust  float64 `json:"gust"`
 }
 
-func (w Wind) directionString() string {
-	switch {
-	case w.Deg >= 360-45/2 || w.Deg < 45/2:
-		return "N"
-	case w.Deg >= 45/2 && w.Deg < 45+45/2:
-		return "NE"
-	case w.Deg >= 45+45/2 && w.Deg < 90+45/2:
-		return "E"
-	case w.Deg >= 90+45/2 && w.Deg < 135+45/2:
-		return "SE"
-	case w.Deg >= 135+45/2 && w.Deg < 180+45/2:
-		return "S"
-	case w.Deg >= 180+45/2 && w.Deg < 225+45/2:
-		return "SW"
-	case w.Deg >= 225+45/2 && w.Deg < 270+45/2:
-		return "W"
-	case w.Deg >= 270+45/2 && w.Deg < 315+45/2:
-		return "NW"
-	}
-
-	return ""
-}
-
 type Rain struct {
 	ThreeHours float64 `json:"3h"`
 }
@@ -132,16 +109,18 @@ func (w WeatherForecast) SunsetLocalTime() string {
 
 type WeatherSummary struct {
 	// Temperature in Degree Celsius
-	CurrentTemperature int `json:"temp_cur"`
+	CurrentTemperature int `json:"temp_current"`
+	FutureTemperature  int `json:"temp_future"`
 
 	// Wind speed in km/h
-	CurrentWindSpeed     int    `json:"wind_cur"`
-	CurrentWindDirection string `json:"wind_dir"`
-	CurrentWindDegrees   int    `json:"wind_deg_current"`
-	FutureWindDegrees    int    `json:"wind_deg_future"`
-	CurrentWindGust      int    `json:"wind_gust"`
-	CurrentRain          int    `json:"rain_current"`
-	FutureRain           int    `json:"rain_future"`
+	CurrentWindSpeed   int `json:"wind_current"`
+	FutureWindSpeed    int `json:"wind_future"`
+	CurrentWindDegrees int `json:"wind_deg_current"`
+	FutureWindDegrees  int `json:"wind_deg_future"`
+	CurrentWindGust    int `json:"wind_gust_current"`
+	FutureWindGust     int `json:"wind_gust_future"`
+	CurrentRain        int `json:"rain_current"`
+	FutureRain         int `json:"rain_future"`
 
 	// Local time
 	SunsetTime string `json:"sunset"`
@@ -174,15 +153,17 @@ func getWeather(lat float64, lon float64) (WeatherSummary, error) {
 	nextWeather := weatherForecast.List[1]
 
 	weatherSummary := WeatherSummary{
-		CurrentTemperature:   int(math.Round(currentWeather.Main.Temp)),
-		CurrentWindSpeed:     int(math.Round(currentWeather.Wind.Speed * 3.6)),
-		CurrentWindGust:      int(math.Round(currentWeather.Wind.Gust * 3.6)),
-		CurrentWindDirection: currentWeather.Wind.directionString(),
-		CurrentWindDegrees:   currentWeather.Wind.Deg,
-		FutureWindDegrees:    nextWeather.Wind.Deg,
-		CurrentRain:          currentWeather.Rain.rainIntensity(),
-		FutureRain:           nextWeather.Rain.rainIntensity(),
-		SunsetTime:           weatherForecast.SunsetLocalTime(),
+		CurrentTemperature: int(math.Round(currentWeather.Main.Temp)),
+		FutureTemperature:  int(math.Round(nextWeather.Main.Temp)),
+		CurrentWindSpeed:   int(math.Round(currentWeather.Wind.Speed * 3.6)),
+		FutureWindSpeed:    int(math.Round(nextWeather.Wind.Speed * 3.6)),
+		CurrentWindGust:    int(math.Round(currentWeather.Wind.Gust * 3.6)),
+		FutureWindGust:     int(math.Round(nextWeather.Wind.Gust * 3.6)),
+		CurrentWindDegrees: currentWeather.Wind.Deg,
+		FutureWindDegrees:  nextWeather.Wind.Deg,
+		CurrentRain:        currentWeather.Rain.rainIntensity(),
+		FutureRain:         nextWeather.Rain.rainIntensity(),
+		SunsetTime:         weatherForecast.SunsetLocalTime(),
 	}
 
 	return weatherSummary, nil
@@ -220,17 +201,6 @@ func weatherHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	json.NewEncoder(w).Encode(weatherSummary)
-
-	// t, err := template.ParseFiles("results.html")
-	// if err != nil {
-	// 	log.Println(err)
-	// 	http.Error(w, "Could not load results", http.StatusInternalServerError)
-	// }
-
-	// if err := t.Execute(w, weatherSummary); err != nil {
-	// 	log.Println(err)
-	// 	http.Error(w, "Could not load results", http.StatusInternalServerError)
-	// }
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
