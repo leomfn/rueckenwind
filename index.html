@@ -6,8 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Windeows XP</title>
     <style>
+        :root {
+            --primary: #38261F;
+            --secondary: #F1A484;
+            --background: #E5FCF5;
+            --tertiary: #B3DEC1;
+        }
+
         body {
             font-family: 'Courier New', Courier, monospace;
+            color: var(--primary);
             display: flex; 
             align-items: center; 
             flex-direction: column; 
@@ -15,7 +23,7 @@
             overflow: hidden; 
             height: 100vh; 
             justify-content: center;
-            background-color: seashell;
+            background-color: var(--background);
         }
 
         .header {
@@ -26,18 +34,24 @@
             font-size: x-large;
         }
 
+        .arrow {
+            height: 80px;
+            width: 80px;
+            position: absolute;
+        }
+
         .current {
-            color: black;
-            stroke: black;
+            color: var(--primary);
+            stroke: var(--primary);
         }
 
         .future {
-            color: grey;
-            stroke: grey;
+            color: var(--secondary);
+            stroke: var(--secondary);
         }
 
         .compass {
-            border: 3px solid lightgrey;
+            border: 5px solid var(--tertiary);
             border-radius: 50%;
             width: 150px;
             height: 150px;
@@ -73,7 +87,7 @@
             }
 
             100% {
-                left: -100%;
+                left: -150%;
             }
         }
     </style>
@@ -149,10 +163,10 @@
 
                         const currentWindArrow = document.getElementById("currentWindArrow")
                         currentWindArrow.innerHTML = arrowSvg
-                        currentWindArrow.style = `transform: rotate(${data.wind_deg_current}deg)`;
+                        currentWindArrow.style = `transform: rotate(${data.wind_deg_current}deg) scale(${(data.wind_current / 120)**0.2})`;
                         const futureWindArrow = document.getElementById("futureWindArrow")
                         futureWindArrow.innerHTML = arrowSvg
-                        futureWindArrow.style = `transform: rotate(${data.wind_deg_future}deg)`;
+                        futureWindArrow.style = `transform: rotate(${data.wind_deg_future}deg) scale(${(data.wind_current / 120)**0.2})`;
 
                         document.getElementById("currentRain").innerText = rainSymbol(data.rain_current);
                         document.getElementById("futureRain").innerText = rainSymbol(data.rain_future);
