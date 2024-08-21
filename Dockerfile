@@ -11,7 +11,8 @@ FROM gcr.io/distroless/static
 
 WORKDIR /app
 
-COPY *.html ./
 COPY --from=builder /app/windeows .
+
+COPY *.html ./
 
 ENTRYPOINT [ "/app/windeows" ]
