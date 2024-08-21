@@ -99,7 +99,7 @@
     <div id="content"
         style="display: flex; align-items: center; flex-direction: column; justify-content: space-evenly; height: 75%; overflow: hidden;">
 
-        <div class="compass">
+        <div id="compass" class="compass">
             <div class="direction" style="left: 50%; top: 10px; transform: translateX(-50%);">N</div>
             <div class="direction" style="top: 50%; right: 10px; transform: translateY(-50%);">E</div>
             <div class="direction" style="left: 50%; bottom: 10px; transform: translateX(-50%);">S</div>
@@ -146,6 +146,23 @@
                 <path d="M12 23V1 M10 20L12 23L14 20" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
         `;
+
+        const handleOrientation = event => {
+            var compassDir;
+            if (event.webkitCompassHeading) {
+                // TODO: not sure if this works correctly
+                compassDir = event.webkitCompassHeading;
+            } else {
+                compassDir = event.alpha;
+            }
+
+            document.getElementById("compass").style = `transform: rotate(${compassDir}deg)`;
+        }
+
+        // TODO: not sure if deviceorientationabsolute is supported on iOS
+        // (probably not on Safari, according to
+        // https://developer.mozilla.org/en-US/docs/Web/API/Window/deviceorientationabsolute_event)
+        window.addEventListener("deviceorientationabsolute", handleOrientation, true);
 
         navigator.geolocation.getCurrentPosition(
             position => {

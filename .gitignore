@@ -1,4 +1,4 @@
 .env
 .vscode
 __debug_*
-deploy.sh
+deploy*sh
