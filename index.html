@@ -134,7 +134,7 @@
         }
 
         const locationError = err => {
-            console.error("Could not get your position, which is necessary for this site.");
+            console.warn("Could not get your position, which is necessary for this site.");
         }
 
         const locationOptions = {
@@ -147,22 +147,7 @@
             </svg>
         `;
 
-        const handleOrientation = event => {
-            var compassDir;
-            if (event.webkitCompassHeading) {
-                // TODO: not sure if this works correctly
-                compassDir = event.webkitCompassHeading;
-            } else {
-                compassDir = event.alpha;
-            }
-
-            document.getElementById("compass").style = `transform: rotate(${compassDir}deg)`;
-        }
-
-        // TODO: not sure if deviceorientationabsolute is supported on iOS
-        // (probably not on Safari, according to
-        // https://developer.mozilla.org/en-US/docs/Web/API/Window/deviceorientationabsolute_event)
-        window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+        const compass = document.getElementById("compass");
 
         navigator.geolocation.getCurrentPosition(
             position => {
@@ -188,11 +173,57 @@
                         document.getElementById("currentRain").innerText = rainSymbol(data.rain_current);
                         document.getElementById("futureRain").innerText = rainSymbol(data.rain_future);
                     })
-                    .catch(error => console.error("Something went wrong when trying to handle the weather data."))
+                    .catch(error => console.warn("Something went wrong when trying to handle the weather data."))
             },
             locationError,
             locationOptions
         )
+
+        const compassClickHandler = () => {
+            DeviceOrientationEvent.requestPermission()
+                .then(response => {
+                    if (response === "granted") {
+                        addIosOrientationEventListener();
+                    } else {
+                        console.warn("Could not get permissions for iPhone's sensors. Compass rotation won't work.")
+                    }
+                })
+                .catch(error => console.warn("An error occured when trying to request the sensor permissions."))
+        }
+
+        const addRegularOrientationEventListener = () => {
+            window.addEventListener("deviceorientationabsolute", event => {
+                compass.style = `transform: rotate(${event.alpha}deg)`;
+            }, true);
+        }
+
+        const addIosOrientationEventListener = () => {
+            window.addEventListener('deviceorientationabsolute', event => {
+                compass.style = `transform: rotate(${event.webkitCompassHeading})`;
+            })
+        }
+
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            // iOS 13 or higher
+            DeviceOrientationEvent.requestPermission()
+                .then(response => {
+                    if (response === "granted") {
+                        // Permission has already been given.
+                        addIosOrientationEventListener();
+                    }
+                })
+                .catch(error => {
+                    // Permission has not yet been given. Inform the user and
+                    // call for action. If the user clicks the compass, they
+                    // will be asked for sensor permissions, which should then
+                    // automatically enable compass rotation.
+                    alert("Active user input is necessary to access your iPhone's orientation sensors for the compass to work correctly. Touch the compass to confirm.")
+                    compass.addEventListener("click", compassClickHandler);
+                })
+        } else {
+            // Other OS
+            addRegularOrientationEventListener();
+        }
     </script>
 </body>
 
