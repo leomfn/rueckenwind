@@ -166,7 +166,7 @@
                         currentWindArrow.style = `transform: rotate(${data.wind_deg_current}deg) scale(${(data.wind_current / 120)**0.2})`;
                         const futureWindArrow = document.getElementById("futureWindArrow")
                         futureWindArrow.innerHTML = arrowSvg
-                        futureWindArrow.style = `transform: rotate(${data.wind_deg_future}deg) scale(${(data.wind_current / 120)**0.2})`;
+                        futureWindArrow.style = `transform: rotate(${data.wind_deg_future}deg) scale(${(data.wind_future / 120)**0.2})`;
 
                         document.getElementById("currentRain").innerText = rainSymbol(data.rain_current);
                         document.getElementById("futureRain").innerText = rainSymbol(data.rain_future);
