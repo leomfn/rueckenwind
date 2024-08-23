@@ -7,3 +7,4 @@ services:
       - 8084:8080
     env_file:
       - .env
+    restart: always
