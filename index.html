@@ -274,7 +274,7 @@
 
         const addIosOrientationEventListener = () => {
             window.addEventListener("deviceorientation", event => {
-                compass.style = `transform: rotate(${event.webkitCompassHeading}deg)`;
+                compass.style = `transform: rotate(${-event.webkitCompassHeading}deg)`;
             })
         }
 
