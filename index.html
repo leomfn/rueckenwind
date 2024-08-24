@@ -225,7 +225,6 @@
                 fetch(overpassRequest)
                     .then(res => res.json())
                     .then(data => {
-                        console.log(position.coords)
                         const sites = data.elements.map(el => {
                             if (el.type === "node") {
                                 return {
@@ -242,7 +241,6 @@
                                 }
                             }
                         })
-                        console.log(sites);
 
                         sites.forEach(site => {
                             const newSite = document.createElement("div");
@@ -276,12 +274,12 @@
         }
 
         const addIosOrientationEventListener = () => {
-            window.addEventListener('deviceorientationabsolute', event => {
-                compass.style = `transform: rotate(${event.webkitCompassHeading})`;
+            window.addEventListener("deviceorientation", event => {
+                compass.style = `transform: rotate(${event.webkitCompassHeading}deg)`;
             })
         }
 
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        if (typeof DeviceOrientationEvent.requestPermission === "function") {
             // iOS 13 or higher
             DeviceOrientationEvent.requestPermission()
                 .then(response => {
