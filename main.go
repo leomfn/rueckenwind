@@ -170,7 +170,15 @@ func getWeather(lat float64, lon float64) (WeatherSummary, error) {
 }
 
 func weatherHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s %s %s - %s", r.RemoteAddr, r.Method, r.URL, r.UserAgent())
+	var ipAddress string
+
+	if os.Getenv("PROXY") == "true" {
+		ipAddress = r.Header.Get("X-Forwarded-For")
+	} else {
+		ipAddress = r.RemoteAddr
+	}
+
+	log.Printf("%s %s %s - %s", ipAddress, r.Method, r.URL, r.UserAgent())
 
 	query := r.URL.Query()
 	latStr := query.Get("lat")
