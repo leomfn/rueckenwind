@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usage Statistics</title>
+    <style>
+        table {
+            border-spacing: 15px 0;
+        }
+        tbody {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+   <table>
+        <thead>
+            <tr>
+                <th scope="col"></th>
+                <th scope="col">visitors</th>
+                <th scope="col">weather requests</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <th scope="row">today</th>
+                <td>{{.TodayVisitors}}</td>
+                <td>{{.TodayRequests}}</td>
+            </tr>
+            <tr>
+                <th scope="row">7 days</th>
+                <td>{{.Last7DaysVisitors}}</td>
+                <td>{{.Last7DaysRequests}}</td>
+            </tr>
+            <tr>
+                <th scope="row">30 days</th>
+                <td>{{.Last30DaysVisitors}}</td>
+                <td>{{.Last30DaysRequests}}</td>
+            </tr>
+        </tbody>
+   </table> 
+</body>
+</html>

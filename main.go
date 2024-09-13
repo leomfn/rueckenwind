@@ -1,14 +1,21 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"math"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
+
+	"database/sql"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Coord struct {
@@ -171,6 +178,7 @@ func getWeather(lat float64, lon float64) (WeatherSummary, error) {
 
 func weatherHandler(w http.ResponseWriter, r *http.Request) {
 	var ipAddress string
+	var username *string
 
 	if os.Getenv("PROXY") == "true" {
 		ipAddress = r.Header.Get("X-Forwarded-For")
@@ -178,7 +186,32 @@ func weatherHandler(w http.ResponseWriter, r *http.Request) {
 		ipAddress = r.RemoteAddr
 	}
 
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		username = nil
+	} else {
+		b64Credentials := strings.TrimPrefix(authHeader, "Basic ")
+		decodedCredentials, err := base64.StdEncoding.DecodeString(b64Credentials)
+
+		if err != nil {
+			log.Println("Could not decode auth credentials")
+			http.Error(w, "Failed to process credentials", http.StatusUnauthorized)
+			return
+		}
+
+		credentials := string(decodedCredentials)
+		usernamePassword := strings.SplitN(credentials, ":", 2)
+		if len(usernamePassword) != 2 {
+			log.Printf("Splitting decoded credentials from auth header resulted in %d instead of 2 elements\n", len(usernamePassword))
+			http.Error(w, "Failed to process credentials", http.StatusUnauthorized)
+			return
+		}
+
+		username = &usernamePassword[0]
+	}
+
 	log.Printf("%s %s %s - %s", ipAddress, r.Method, r.URL, r.UserAgent())
+	t.addEntry(ipAddress, username)
 
 	query := r.URL.Query()
 	latStr := query.Get("lat")
@@ -219,10 +252,110 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 }
 
+func siteStatsHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFiles("stats.html")
+
+	if err != nil {
+		http.Error(w, "Could not load stats page", http.StatusInternalServerError)
+	}
+
+	var todayVisitors, todayRequests, last7DaysVisitors, last7DaysRequests, last30DaysVisitors, last30DaysRequests int
+
+	todayVisitors, todayRequests = t.getStats(0)
+	last7DaysVisitors, last7DaysRequests = t.getStats(7)
+	last30DaysVisitors, last30DaysRequests = t.getStats(30)
+
+	statsData := struct {
+		TodayVisitors      int
+		TodayRequests      int
+		Last7DaysVisitors  int
+		Last7DaysRequests  int
+		Last30DaysVisitors int
+		Last30DaysRequests int
+	}{
+		todayVisitors,
+		todayRequests,
+		last7DaysVisitors,
+		last7DaysRequests,
+		last30DaysVisitors,
+		last30DaysRequests,
+	}
+
+	tmpl.Execute(w, statsData)
+}
+
+var t *tracker
+
+type tracker struct {
+	db *sql.DB
+}
+
+func newTracker() *tracker {
+	if _, err := os.Stat("./data"); os.IsNotExist(err) {
+		// Make data directory if it doesn't exist yet
+		err := os.Mkdir("./data", 0700)
+		if err != nil {
+			log.Fatal("Could not create data directory:", err)
+		}
+	}
+
+	db, err := sql.Open("sqlite3", "data/stats.sqlite")
+	if err != nil {
+		log.Fatal("Error opening database file:", err)
+	}
+
+	createTableStatement := `
+		CREATE TABLE IF NOT EXISTS stats (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+			ip_address TEXT NOT NULL,
+			username TEXT
+		);
+	`
+
+	if _, err := db.Exec(createTableStatement); err != nil {
+		log.Fatal("Error creating stats table:", err)
+	}
+
+	return &tracker{db: db}
+}
+
+func (tracker *tracker) addEntry(ip string, username *string) {
+	stmt, err := tracker.db.Prepare("INSERT INTO stats (ip_address, username) VALUES (?, ?)")
+	if err != nil {
+		log.Fatal("Error writing data to stats table:", err)
+	}
+
+	if _, err := stmt.Exec(ip, &username); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (tracker *tracker) getStats(n int) (int, int) {
+	query := `
+	SELECT COUNT(DISTINCT ip_address) as visitors, COUNT(*) as requests 
+	FROM stats
+	WHERE date(timestamp) >= date(datetime('now', '-' || ? || ' days'));`
+
+	row := tracker.db.QueryRow(query, n)
+	var visitors, requests int
+	err := row.Scan(&visitors, &requests)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return visitors, requests
+}
+
 func main() {
+	t = newTracker()
+
+	defer t.db.Close()
+
 	http.HandleFunc("/hello", statusHandler)
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/weather", weatherHandler)
+	http.HandleFunc("/stats", siteStatsHandler)
 
 	log.Println("Server running on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

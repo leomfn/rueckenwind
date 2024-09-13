@@ -1,8 +1,0 @@
-services:
-  windeows:
-    build: https://github.com/leomfn/windeows.git
-    ports:
-      - 8084:8080
-    env_file:
-      - .env
-    restart: always

@@ -2,3 +2,5 @@
 .vscode
 __debug_*
 deploy*sh
+data
+docker-compose.yml
