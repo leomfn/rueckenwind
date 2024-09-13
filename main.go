@@ -331,6 +331,20 @@ func (tracker *tracker) addEntry(ip string, username *string) {
 	}
 }
 
+func (tracker *tracker) clean() {
+	query := `
+		DELETE
+		FROM stats
+		WHERE date(timestamp) < date(datetime('now', '-30 days'));`
+
+	_, err := tracker.db.Exec(query)
+	if err != nil {
+		log.Println("Error cleaning up old entries in tracking database:", err)
+	}
+
+	log.Println("Cleaned up old entries in tracking database")
+}
+
 func (tracker *tracker) getStats(n int) (int, int) {
 	query := `
 	SELECT COUNT(DISTINCT ip_address) as visitors, COUNT(*) as requests 
@@ -351,6 +365,13 @@ func main() {
 	t = newTracker()
 
 	defer t.db.Close()
+
+	go func() {
+		for {
+			t.clean()
+			time.Sleep(24 * time.Hour)
+		}
+	}()
 
 	http.HandleFunc("/hello", statusHandler)
 	http.HandleFunc("/", rootHandler)
