@@ -15,7 +15,9 @@ import (
 
 	"database/sql"
 
+	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Coord struct {
@@ -284,25 +286,17 @@ func siteStatsHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, statsData)
 }
 
+func setupDatabase() {
+
+}
+
 var t *tracker
 
 type tracker struct {
 	db *sql.DB
 }
 
-func newTracker() *tracker {
-	if _, err := os.Stat("./data"); os.IsNotExist(err) {
-		// Make data directory if it doesn't exist yet
-		err := os.Mkdir("./data", 0700)
-		if err != nil {
-			log.Fatal("Could not create data directory:", err)
-		}
-	}
-
-	db, err := sql.Open("sqlite3", "data/stats.sqlite")
-	if err != nil {
-		log.Fatal("Error opening database file:", err)
-	}
+func newTracker(db *sql.DB) *tracker {
 
 	createTableStatement := `
 		CREATE TABLE IF NOT EXISTS stats (
@@ -323,11 +317,11 @@ func newTracker() *tracker {
 func (tracker *tracker) addEntry(ip string, username *string) {
 	stmt, err := tracker.db.Prepare("INSERT INTO stats (ip_address, username) VALUES (?, ?)")
 	if err != nil {
-		log.Fatal("Error writing data to stats table:", err)
+		log.Println("Error writing data to stats table:", err)
 	}
 
 	if _, err := stmt.Exec(ip, &username); err != nil {
-		log.Fatal(err)
+		log.Println("Error executing prepared statement:", err)
 	}
 }
 
@@ -355,16 +349,226 @@ func (tracker *tracker) getStats(n int) (int, int) {
 	var visitors, requests int
 	err := row.Scan(&visitors, &requests)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	return visitors, requests
 }
 
-func main() {
-	t = newTracker()
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		username := r.FormValue("username")
+		password := r.FormValue("password")
 
-	defer t.db.Close()
+		// TODO: validate username, password
+		valid := a.validateUserCredentials(username, password)
+
+		// TODO: create and return jwt
+
+		// TODO: check jwt in relevant endpoints
+
+		if valid {
+			jwt := a.createJWT(username)
+			http.SetCookie(w, &http.Cookie{
+				Name:  "token",
+				Value: jwt,
+				// TODO: parametrize expiry, together with jwt expiry
+				Expires:  time.Now().Add(7 * 24 * time.Hour),
+				HttpOnly: true,
+				Secure:   true,
+			})
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+		} else {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		}
+
+		// TODO: remove default login failure
+		// http.Error(w, "Login failed", http.StatusUnauthorized)
+	} else {
+		tmpl, err := template.ParseFiles("login.html")
+
+		if err != nil {
+			http.Error(w, "Could not load login page", http.StatusInternalServerError)
+		}
+
+		tmpl.Execute(w, nil)
+	}
+}
+
+type auth struct {
+	db     *sql.DB
+	secret string
+}
+
+var a *auth
+
+func newAuth(db *sql.DB) *auth {
+	createTableStatement := `
+		CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			username TEXT UNIQUE NOT NULL,
+			hashed_password TEXT NOT NULL
+		);
+	`
+
+	if _, err := db.Exec(createTableStatement); err != nil {
+		log.Fatal("Error creating users table:", err)
+	}
+
+	jwtSecret, exists := os.LookupEnv("JWT_SECRET")
+	if !exists {
+		log.Fatal("JWT_SECRET environment variable not set")
+	}
+
+	return &auth{db: db, secret: jwtSecret}
+}
+
+// TODO: properly implement hashing
+func hash_password(password string) string {
+	return "notreallyhashed"
+}
+
+func (auth *auth) createUser(username, password string) {
+	stmt, err := auth.db.Prepare("INSERT INTO users (username, hashed_password) VALUES (?, ?)")
+	if err != nil {
+		log.Println("Error creating new user:", err)
+	}
+
+	hashed_password, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Println("Error hashing password:", err)
+	}
+
+	if _, err := stmt.Exec(&username, &hashed_password); err != nil {
+		log.Println("Error executing prepared statement:", err)
+	}
+}
+
+func (auth *auth) validateUserCredentials(username, password string) bool {
+	query := `
+	SELECT hashed_password
+	FROM users
+	WHERE username = ?;`
+
+	var hashedPasswordInDatabase string
+
+	err := auth.db.QueryRow(query, username).Scan(&hashedPasswordInDatabase)
+
+	// User does not exist in database, or another error occured
+	if err != nil {
+		return false
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(hashedPasswordInDatabase), []byte(password))
+	if err != nil {
+		return false
+	} else {
+		return true
+	}
+}
+
+func (*auth) createJWT(username string) string {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": username,
+		"exp":      time.Now().Add(7 * 24 * time.Hour).Unix(),
+	})
+
+	signedToken, err := token.SignedString([]byte(a.secret))
+	if err != nil {
+		log.Println("Error generating JWT:", err)
+	}
+
+	return signedToken
+}
+
+func (auth *auth) userExists(username string) bool {
+	query := `
+	SELECT 1
+	FROM users
+	WHERE username = ?;`
+
+	err := auth.db.QueryRow(query, username).Err()
+
+	// User does not exist in database, or another error occured
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+func jwtMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenCookie, err := r.Cookie("token")
+		if err != nil {
+			if err == http.ErrNoCookie {
+				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				return
+			} else {
+				http.Error(w, "Error reading token cookie", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		token, err := jwt.Parse(tokenCookie.Value, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			}
+
+			return []byte(a.secret), nil
+		})
+
+		if err != nil {
+			log.Println("Error parsing JWT:", err)
+			http.Error(w, "Invalid token cookie", http.StatusUnauthorized)
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+
+		if !ok {
+			log.Println(err)
+			http.Error(w, "Invalid token cookie", http.StatusUnauthorized)
+			return
+		}
+
+		username := claims["username"].(string)
+		exp := claims["exp"].(float64)
+
+		if !a.userExists(username) {
+			http.Error(w, "Invalid token cookie", http.StatusUnauthorized)
+			return
+		}
+
+		if time.Unix(int64(exp), 0).Before(time.Now()) {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func main() {
+	if _, err := os.Stat("./data"); os.IsNotExist(err) {
+		// Make data directory if it doesn't exist yet
+		err := os.Mkdir("./data", 0700)
+		if err != nil {
+			log.Fatal("Could not create data directory:", err)
+		}
+	}
+
+	db, err := sql.Open("sqlite3", "data/db.sqlite")
+	if err != nil {
+		log.Fatal("Error opening database file:", err)
+	}
+
+	t = newTracker(db)
+	a = newAuth(db)
+	// TODO: remove test credentials
+	// a.createUser("test", "123")
+
+	defer db.Close()
 
 	go func() {
 		for {
@@ -373,11 +577,19 @@ func main() {
 		}
 	}()
 
-	http.HandleFunc("/hello", statusHandler)
-	http.HandleFunc("/", rootHandler)
-	http.HandleFunc("/weather", weatherHandler)
-	http.HandleFunc("/stats", siteStatsHandler)
+	mux := http.NewServeMux()
+	mux.Handle("/hello", http.HandlerFunc(statusHandler))
+	mux.Handle("/stats", http.HandlerFunc(siteStatsHandler))
+	mux.Handle("/login", http.HandlerFunc(loginHandler))
+	mux.Handle("/weather", jwtMiddleware(http.HandlerFunc(weatherHandler)))
+	mux.Handle("/", jwtMiddleware(http.HandlerFunc(rootHandler)))
+
+	// http.HandleFunc("/hello", statusHandler)
+	// http.Handle("/", jwtMiddleware(http.HandlerFunc(rootHandler)))
+	// http.Handle("/weather", jwtMiddleware(http.HandlerFunc(weatherHandler)))
+	// http.HandleFunc("/stats", siteStatsHandler)
+	// http.Handle("/login", jwtMiddleware(http.HandlerFunc(loginHandler)))
 
 	log.Println("Server running on port 8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
