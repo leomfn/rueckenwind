@@ -1,0 +1,34 @@
+<div id="sunset">🚴🚴‍♂️🍃💨 Ride until <span id="sunsetTime">{{.SunsetTime}}</span> 🌄</div>
+<div id="compass-weather-info">
+    <div id="compass" class="compass">
+        <div class="direction" style="left: 50%; top: 10px; transform: translateX(-50%);">N</div>
+        <div class="direction" style="top: 50%; right: 10px; transform: translateY(-50%);">E</div>
+        <div class="direction" style="left: 50%; bottom: 10px; transform: translateX(-50%);">S</div>
+        <div class="direction" style="top: 50%; left: 10px; transform: translateY(-50%);">W</div>
+
+        <div class="arrow future" id="futureWindArrow" style="rotate: {{.FutureWindDegrees}}deg;">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 23V1 M10 20L12 23L14 20" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="arrow current" id="currentWindArrow" style="rotate: {{.CurrentWindDegrees}}deg;">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 23V1 M10 20L12 23L14 20" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+    </div>
+    <div id="weather-info">
+        <div class="infoRow">
+            🌡️ <span id="currentTemp" class="current">{{.CurrentTemperature}}</span> <span id="futureTemp" class="future">{{.FutureTemperature}}</span> °C
+        </div>
+        <div class="infoRow">
+            🌬️ <span id="currentWindSpeed" class="current">{{.CurrentWindSpeed}}</span> <span id="futureWindSpeed" class="future">{{.FutureWindSpeed}}</span> km/h
+        </div>
+        <div class="infoRow">
+        🌪️ <span id="currentWindGust">{{.CurrentWindGust}}</span> <span id="futureWindGust" class="future">{{.FutureWindGust}}</span> km/h
+        </div>
+        <div class="infoRow">
+            💦 <span id="currentRain" class="current">{{.CurrentRainText}}</span> <span id="futureRain" class="future">{{.FutureRainText}}</span>
+        </div>
+    </div>
+</div>

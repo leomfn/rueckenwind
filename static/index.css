@@ -1,0 +1,187 @@
+:root {
+    --primary: #38261F;
+    --secondary: #F1A484;
+    --background: #E5FCF5;
+    --tertiary: #B3DEC1;
+}
+
+html {
+    height: 100%;
+}
+
+em {
+    color: var(--tertiary);
+    font-style: normal;
+    font-weight: bold;
+}
+
+h2 {
+    margin: 0;
+    padding-top: 1rem;
+    padding-bottom: 0.5rem;
+    position: sticky;
+    top: 0;
+    background-color: white;
+}
+
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    font-family: 'Courier New', Courier, monospace;
+    background-color: var(--background);
+}
+
+.container {
+    width: 90%;
+    max-width: 800px;
+    height: 100%;
+}
+
+#sunset {
+    animation: cyclist 4s linear infinite;
+    position: fixed;
+    top: 15px;
+    white-space: nowrap;
+}
+
+@keyframes cyclist {
+    0% {
+        left: 100%;
+    }
+
+    100% {
+        left: -150%;
+    }
+}
+
+#site-info {
+    position: fixed;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+#welcome-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 1vh;
+}
+
+#compass {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 5px solid var(--tertiary);
+    border-radius: 50%;
+    width: 150px;
+    height: 150px;
+    position: relative;
+    margin: 1rem;
+}
+
+#compass-weather-info {
+    height: 70%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    align-items: center;
+    top: 10%;
+    position: fixed;
+}
+
+.direction {
+    position: absolute;
+}
+
+.arrow {
+    height: 80px;
+    width: 80px;
+    position: absolute;
+}
+
+.current {
+    color: var(--primary);
+    stroke: var(--primary);
+}
+
+.future {
+    color: var(--secondary);
+    stroke: var(--secondary);
+}
+
+#symbol-legend {
+    list-style-type: none;
+}
+
+button {
+    border-style: solid;
+    border-width: 2px;
+    border-color: var(--tertiary);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background-color: transparent;
+    color: var(--primary);
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: var(--primary);
+}
+
+button:active {
+    background-color: var(--tertiary);
+}
+
+.modal {
+    visibility: hidden;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.modal > .modal-content {
+    width: 80%;
+    max-width: 600px;
+    height: 70%;
+    top: 10%;
+    position: fixed;
+    overflow-y: scroll;
+    border: solid 1px black;
+    border-radius: 5px;
+    box-shadow: 0px 0px 20px 0px rgba(0,0,0,0.3);
+    background-color: white;
+    padding: 0 20px 0px 20px;
+}
+
+.modal-content > .close-container {
+    position: fixed;
+    bottom: 10%;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    padding: 0;
+    align-items: center;
+}
+
+.close-container > button {
+    background-color: var(--secondary);
+    border-color: var(--secondary);
+}
+
+.close-container > button:hover {
+    border-color: var(--primary);
+}
+
+.close-container > button:active {
+    background-color: transparent;
+}
