@@ -4,3 +4,4 @@ __debug_*
 deploy*sh
 data
 docker-compose.yml
+.DS_Store

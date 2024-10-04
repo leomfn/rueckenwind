@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+    <script src="https://unpkg.com/htmx.org@2.0.2"></script>
+    <script src="/static/index.js"></script>
+    <link rel="stylesheet" href="/static/index.css">
+    <script defer src="https://tracking.holydave.de/script.js" data-website-id="b32d8acc-d365-4f0e-9047-f42a0ae7583c"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="welcome-info">waiting for data...</div>
+        <div id="site-info">
+            <button hx-get="/about" hx-target="body" hx-swap="beforeend">About</button>
+        </div>
+    </div>
+</body>
+</html>
