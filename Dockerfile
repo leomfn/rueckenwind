@@ -7,8 +7,6 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-RUN go install github.com/mattn/go-sqlite3
-
 COPY *.go ./
 
 RUN go build -ldflags="-extldflags=-static" -v -o ./windeows
