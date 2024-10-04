@@ -8,7 +8,7 @@ COPY go.mod go.sum ./
 
 COPY *.go ./
 
-RUN GOOS=linux GOARCH=amd64 go build -v -o ./windeows
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o ./windeows
 
 FROM gcr.io/distroless/static-debian12
 
