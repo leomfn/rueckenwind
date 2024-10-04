@@ -11,82 +11,9 @@
 </head>
 <body>
     <div class="container">
-        <!-- <div id="status">Requesting location...</div> -->
-        <!-- <div class="info-banner">loading...</div> -->
-        <!-- <div class="compass">loading...</div> -->
-        <div id="welcome-info"></div>
+        <div id="welcome-info">waiting for data...</div>
         <div id="site-info">
-            <button onclick="openModal('info')">About</button>
-        </div>
-        <div class="modal" id="location-error-modal">
-            <div class="modal-content">
-                <h2>Error</h2>
-                <p>
-                    This site doesn't work without location permission.
-                </p>
-                <div class="close-container">
-                    <button id="close-modal" onclick="closeModal('location-error')">Close</button>
-                </div>
-            </div>
-        </div>
-        <div class="modal" id="info-modal">
-            <div class="modal-content">
-                <h2>About this site</h2>
-                <p>
-                    This site shows you <span class="current"><b>current</b></span> and <span class="future"><b>future</b></span> weather information for your location.
-                    It focuses on wind direction and speed, so you can make decisions during your bike adventure.
-                    The small numbers around the compass represent distances (in km) to the closest campsites.
-                </p>
-                <p>Symbol legend:</p>
-                <ul id="symbol-legend">
-                    <li>🌡 ️temperature</li>
-                    <li>🌬️ wind speed</li>
-                    <li>🌪️ gust speed</li>
-                    <li>💦 rain intensity</li>
-                </ul>
-
-                <h2>Permissions</h2>
-                <p>
-                    This site needs your <em>location</em> to fetch weather data and campsite locations.
-                    Therefore, if you want to use this site, you need to allow the site to access your location.
-                </p>
-                <p>
-                    Furthermore, if you're using a mobile device (Android or iOS), your device's <em>orientation</em> sensor is used to rotate the compass.
-                    On iOS, you have to give this permission explicitly.
-                </p>
-
-                <h2>Privacy</h2>
-                <p>
-                    The coordinates from your device's location are used to fetch the weather forecast and closest campsites for your area and therefore shared with OpenWeather and Overpass API (see below).
-                    However, no further data from your device is sent to those services.
-                </p>
-                <p>
-                    To track usage statistics, this site uses a self-hosted <a href="https://umami.is" rel="noreferrer noopener" target="_blank">umami</a> instance.
-                </p>
-                <p>
-                    This site doesn't use cookies.
-                </p>
-
-                <h2>Data sources</h2>
-                <p>
-                    Weather data is provided by <a href="https://openweathermap.org/" rel="noreferrer noopener" target="_blank">OpenWeather</a>.
-                    Campsite locations are fetched from <a href="https://www.openstreetmap.org" rel="noreferrer noopener" target="_blank">OpenStreetMap</a> via <a href="https://wiki.openstreetmap.org/wiki/Overpass_API" rel="noreferrer noopener" target="_blank">Overpass API</a>.
-                </p>
-                <div class="source-logos">
-                    <a href="https://openweathermap.org" rel="noreferrer noopener" target="_blank">
-                        <img src="/static/images/open_weather_logo.svg" alt="OpenWeather logo" height="40px">
-                    </a>
-                </div>
-
-                <h2>Source code</h2>
-                <p>
-                    You can find the source on <a href="https://github.com/leomfn/windeows" rel="noreferrer noopener" target="_blank">GitHub</a>.
-                    Feel free to open an issue if you find a bug or have a feature request.
-                </p>
-                <div class="close-container">
-                    <button id="close-modal" onclick="closeModal('info')">Close</button>
-                </div>
-            </div>
+            <button hx-get="/about" hx-target="body" hx-swap="beforeend">About</button>
         </div>
     </div>
 </body>

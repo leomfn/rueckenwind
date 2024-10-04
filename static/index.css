@@ -38,13 +38,23 @@ body {
     width: 90%;
     max-width: 800px;
     height: 100%;
+    display: flex;
+    justify-content: center;
 }
 
-#sunset {
-    animation: cyclist 4s linear infinite;
+#welcome-info {
+    width: 100%;
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+}
+
+#cycle-banner {
     position: fixed;
     top: 15px;
     white-space: nowrap;
+    animation: cyclist 8s linear infinite;
 }
 
 @keyframes cyclist {
@@ -64,13 +74,6 @@ body {
     transform: translateX(-50%);
 }
 
-#welcome-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 1vh;
-}
-
 #compass {
     display: flex;
     justify-content: center;
@@ -81,6 +84,17 @@ body {
     height: 150px;
     position: relative;
     margin: 1rem;
+    /* trying to smoothen the compass rotation */
+    transition: transform 0.1s ease-out;
+}
+
+#compass-circle {
+    border: 5px solid --tertiary;
+    background-color: var(--background);
+    border-radius: 50%;
+    width: 100%;
+    height: 100%;
+    flex-shrink: 0;
 }
 
 #compass-weather-info {
@@ -91,6 +105,24 @@ body {
     align-items: center;
     top: 10%;
     position: fixed;
+}
+
+.compass-site {
+    position: absolute;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    font-size: 0.5rem;
+    text-align: center;
+    opacity: 50%;
+    z-index: -1;
+}
+
+.site-indicator {
+    width: 0;
+    border-left: 1px dotted black;
+    transform: translateY(-50%);
 }
 
 .direction {
@@ -113,11 +145,41 @@ body {
     stroke: var(--secondary);
 }
 
+.info-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.info-row img {
+    padding-right: 1rem;
+}
+
+.info-row .current {
+    margin-right: 0.5rem;
+}
+
+.info-row .future {
+    margin-right: 0.5rem;
+}
+
 #symbol-legend {
     list-style-type: none;
 }
 
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.legend-item img {
+    padding-right: 1rem;
+}
+
 button {
+    width: 68px;
+    height: 40px;
     border-style: solid;
     border-width: 2px;
     border-color: var(--tertiary);
@@ -133,11 +195,10 @@ button:hover {
 }
 
 button:active {
-    background-color: var(--tertiary);
+    background-color: var(--secondary);
 }
 
 .modal {
-    visibility: hidden;
     position: fixed;
     top: 0;
     bottom: 0;
@@ -147,12 +208,26 @@ button:active {
     flex-direction: column;
     align-items: center;
     background-color: rgba(0, 0, 0, 0.1);
+    opacity: 1;
+    transition: opacity 0.1s ease-out;
+}
+
+.modal.htmx-added {
+    opacity: 0;
+}
+
+.modal > .modal-underlay {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
 }
 
 .modal > .modal-content {
     width: 80%;
     max-width: 600px;
-    height: 70%;
+    max-height: 70%;
     top: 10%;
     position: fixed;
     overflow-y: scroll;
@@ -166,8 +241,8 @@ button:active {
 .modal-content > .close-container {
     position: fixed;
     bottom: 10%;
-    left: 0;
-    width: 100%;
+    left: 50%;
+    transform: translateX(-50%);
     text-align: center;
     padding: 0;
     align-items: center;
@@ -183,5 +258,5 @@ button:active {
 }
 
 .close-container > button:active {
-    background-color: transparent;
+    background-color: var(--background);
 }

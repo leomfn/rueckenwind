@@ -1,21 +1,77 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
-
-	"database/sql"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
-type Coord struct {
-	Lon float64 `json:"lon"`
-	Lat float64 `json:"lat"`
+var (
+	maxOverpassDistance int64
+)
+
+func init() {
+	// Load environment variables
+	maxOverpassDistanceEnv, exists := os.LookupEnv("MAX_OVERPASS_DISTANCE")
+	if !exists {
+		maxOverpassDistance = 25
+	} else {
+		var err error
+		maxOverpassDistance, err = strconv.ParseInt(maxOverpassDistanceEnv, 10, 64)
+
+		if err != nil {
+			log.Fatal("Environment variable MAX_OVERPASS_DISTANCE must be an integer")
+		}
+
+	}
+}
+
+type coordinate float64
+
+func (c coordinate) toRadians() float64 {
+	return float64(c) / 180 * math.Pi
+}
+
+type location struct {
+	Lon *coordinate `json:"lon"`
+	Lat *coordinate `json:"lat"`
+}
+
+// Haversine distance
+func (l1 location) distance(l2 location) float64 {
+	earthRadius := 6371.0 // km
+
+	lat1 := l1.Lat.toRadians()
+	lon1 := l1.Lon.toRadians()
+	lat2 := l2.Lat.toRadians()
+	lon2 := l2.Lon.toRadians()
+
+	return 2 * earthRadius * math.Asin(
+		math.Sqrt(
+			(1-math.Cos(lat2-lat1)+math.Cos(lat1)*math.Cos(lat2)*(1-math.Cos(lon2-lon1)))/2,
+		),
+	)
+}
+
+// Bearing angle between two points, where l1 is the reference point and the
+// bearing expresses the angle between north and the line through l2
+func (l1 location) bearing(l2 location) float64 {
+	lat1 := l1.Lat.toRadians()
+	lon1 := l1.Lon.toRadians()
+	lat2 := l2.Lat.toRadians()
+	lon2 := l2.Lon.toRadians()
+
+	return math.Atan2(
+		math.Sin(lon2-lon1)*math.Cos(lat2),
+		math.Cos(lat1)*math.Sin(lat2)-math.Sin(lat1)*math.Cos(lat2)*math.Cos(lon2-lon1),
+	) / math.Pi * 180
 }
 
 type Weather struct {
@@ -41,6 +97,20 @@ type Wind struct {
 	Speed float64 `json:"speed"`
 	Deg   int     `json:"deg"`
 	Gust  float64 `json:"gust"`
+}
+
+func (w Wind) scale() float64 {
+	maxSpeed := 80.0
+	speed := w.Speed * 3.6
+
+	if w.Speed > maxSpeed {
+		speed = maxSpeed
+	}
+
+	scale := 0.2 + 0.8*math.Tanh(0.03*speed)
+	log.Println(speed, scale)
+
+	return scale
 }
 
 type Rain struct {
@@ -88,14 +158,14 @@ type Sys struct {
 }
 
 type City struct {
-	Id         int64  `json:"id"`
-	Name       string `json:"name"`
-	Coord      Coord  `json:"coord"`
-	Country    string `json:"country"`
-	Population int    `json:"population"`
-	Timezone   int    `json:"timezone"`
-	Sunrise    int    `json:"sunrise"`
-	Sunset     int    `json:"sunset"`
+	Id         int64    `json:"id"`
+	Name       string   `json:"name"`
+	Coord      location `json:"coord"`
+	Country    string   `json:"country"`
+	Population int      `json:"population"`
+	Timezone   int      `json:"timezone"`
+	Sunrise    int      `json:"sunrise"`
+	Sunset     int      `json:"sunset"`
 }
 
 type ForecastEntry struct {
@@ -131,270 +201,202 @@ type WeatherSummary struct {
 	FutureTemperature  int `json:"temp_future"`
 
 	// Wind speed in km/h
-	CurrentWindSpeed   int    `json:"wind_current"`
-	FutureWindSpeed    int    `json:"wind_future"`
-	CurrentWindDegrees int    `json:"wind_deg_current"`
-	FutureWindDegrees  int    `json:"wind_deg_future"`
-	CurrentWindGust    int    `json:"wind_gust_current"`
-	FutureWindGust     int    `json:"wind_gust_future"`
-	CurrentRain        int    `json:"rain_current"`
-	FutureRain         int    `json:"rain_future"`
-	CurrentRainText    string `json:"rain_current_text`
-	FutureRainText     string `json:"rain_future_text`
+	CurrentWindSpeed   int     `json:"wind_current"`
+	FutureWindSpeed    int     `json:"wind_future"`
+	CurrentWindDegrees int     `json:"wind_deg_current"`
+	FutureWindDegrees  int     `json:"wind_deg_future"`
+	CurrentWindGust    int     `json:"wind_gust_current"`
+	FutureWindGust     int     `json:"wind_gust_future"`
+	CurrentWindScale   float64 `json:"wind_scale_current"`
+	FutureWindScale    float64 `json:"wind_scale_future"`
+	CurrentRain        int     `json:"rain_current"`
+	FutureRain         int     `json:"rain_future"`
+	CurrentRainText    string  `json:"rain_current_text"`
+	FutureRainText     string  `json:"rain_future_text"`
 
 	// Local time
 	SunsetTime string `json:"sunset"`
 }
 
-func getWeather(lat float64, lon float64) (WeatherSummary, error) {
-
-	// owmApiKey, exists := os.LookupEnv("OPEN_WEATHER_MAP_API_KEY")
-
-	// if !exists {
-	// 	log.Fatal("Environment variable OPEN_WEATHER_MAP_API_KEY not found.")
-	// }
-
-	// // Request weather forecast for next 12 hours in 3-hour blocks (4 items in total)
-	// owmUrl := fmt.Sprintf("https://api.openweathermap.org/data/2.5/forecast?lat=%f&lon=%f&appid=%s&units=metric&cnt=2", lat, lon, owmApiKey)
-
-	// resp, err := http.Get(owmUrl)
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-	// defer resp.Body.Close()
-
-	// var weatherForecast WeatherForecast
-
-	// if err := json.NewDecoder(resp.Body).Decode(&weatherForecast); err != nil {
-	// 	log.Println(err)
-	// }
-
-	// currentWeather := weatherForecast.List[0]
-	// nextWeather := weatherForecast.List[1]
-
-	// weatherSummary := WeatherSummary{
-	// 	CurrentTemperature: int(math.Round(currentWeather.Main.Temp)),
-	// 	FutureTemperature:  int(math.Round(nextWeather.Main.Temp)),
-	// 	CurrentWindSpeed:   int(math.Round(currentWeather.Wind.Speed * 3.6)),
-	// 	FutureWindSpeed:    int(math.Round(nextWeather.Wind.Speed * 3.6)),
-	// 	CurrentWindGust:    int(math.Round(currentWeather.Wind.Gust * 3.6)),
-	// 	FutureWindGust:     int(math.Round(nextWeather.Wind.Gust * 3.6)),
-	// 	CurrentWindDegrees: currentWeather.Wind.Deg,
-	// 	FutureWindDegrees:  nextWeather.Wind.Deg,
-	// 	CurrentRain:        currentWeather.Rain.rainIntensity(),
-	// 	FutureRain:         nextWeather.Rain.rainIntensity(),
-	// 	CurrentRainText:    currentWeather.Rain.rainText(),
-	// 	FutureRainText:     nextWeather.Rain.rainText(),
-	// 	SunsetTime:         weatherForecast.SunsetLocalTime(),
-	// }
-
-	// return weatherSummary, nil
-
-	return WeatherSummary{
-		CurrentTemperature: 10,
-		FutureTemperature:  13,
-		CurrentWindSpeed:   8,
-		FutureWindSpeed:    23,
-		CurrentWindGust:    13,
-		FutureWindGust:     51,
-		CurrentWindDegrees: 13,
-		FutureWindDegrees:  113,
-		CurrentRain:        0,
-		FutureRain:         0,
-		CurrentRainText:    "dry",
-		FutureRainText:     "dry",
-		SunsetTime:         "19:13",
-	}, nil
+type locationInfo struct {
+	WeatherSummary
+	Campsites []Campsite
 }
 
-// func weatherHandler(w http.ResponseWriter, r *http.Request) {
-// 	var ipAddress string
-// 	var username *string
-
-// 	if os.Getenv("PROXY") == "true" {
-// 		ipAddress = r.Header.Get("X-Forwarded-For")
-// 	} else {
-// 		ipAddress = r.RemoteAddr
-// 	}
-
-// 	authHeader := r.Header.Get("Authorization")
-// 	if authHeader == "" {
-// 		username = nil
-// 	} else {
-// 		b64Credentials := strings.TrimPrefix(authHeader, "Basic ")
-// 		decodedCredentials, err := base64.StdEncoding.DecodeString(b64Credentials)
-
-// 		if err != nil {
-// 			log.Println("Could not decode auth credentials")
-// 			http.Error(w, "Failed to process credentials", http.StatusUnauthorized)
-// 			return
-// 		}
-
-// 		credentials := string(decodedCredentials)
-// 		usernamePassword := strings.SplitN(credentials, ":", 2)
-// 		if len(usernamePassword) != 2 {
-// 			log.Printf("Splitting decoded credentials from auth header resulted in %d instead of 2 elements\n", len(usernamePassword))
-// 			http.Error(w, "Failed to process credentials", http.StatusUnauthorized)
-// 			return
-// 		}
-
-// 		username = &usernamePassword[0]
-// 	}
-
-// 	log.Printf("%s %s %s - %s", ipAddress, r.Method, r.URL, r.UserAgent())
-// 	t.addEntry(ipAddress, username)
-
-// 	query := r.URL.Query()
-// 	latStr := query.Get("lat")
-// 	lonStr := query.Get("lon")
-// 	if latStr == "" || lonStr == "" {
-// 		http.Error(w, "Missing query parameters: both 'lat' and 'lon' are required.", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	lat, err := strconv.ParseFloat(latStr, 64)
-// 	if err != nil {
-// 		http.Error(w, "Invalid latitude value.", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	lon, err := strconv.ParseFloat(lonStr, 64)
-// 	if err != nil {
-// 		http.Error(w, "Invalid longitude value.", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	weatherSummary, err := getWeather(lat, lon)
-
-// 	if err != nil {
-// 		http.Error(w, "Could not get current weather", http.StatusInternalServerError)
-// 	}
-
-// 	w.Header().Set("Content-Type", "application/json")
-// 	w.WriteHeader(200)
-// 	json.NewEncoder(w).Encode(weatherSummary)
-// }
-
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "index.html")
+type Campsite struct {
+	Bearing       float64
+	Distance      float64
+	DistanceText  string
+	DistancePixel float64
+	Name          string
+	Website       string
 }
 
-func statusHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(200)
+func newCampsite(campsiteLocation location, referenceLocation location) Campsite {
+	distance := referenceLocation.distance(campsiteLocation)
+	var distanceText string
+
+	// Show first decimal place for distances under 2km
+	if distance < 2 {
+		distanceText = fmt.Sprintf("%.1f", distance)
+	} else {
+		distanceText = fmt.Sprintf("%.0f", distance)
+	}
+	maxPixel := 50.0
+	minPixel := 20.0
+	distancePixel := minPixel + (maxPixel-minPixel)*distance/float64(maxOverpassDistance)
+
+	return Campsite{
+		Bearing:       referenceLocation.bearing(campsiteLocation),
+		Distance:      distance,
+		DistanceText:  distanceText,
+		DistancePixel: distancePixel,
+	}
 }
 
-func siteStatsHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles("stats.html")
+type overpassResult struct {
+	Elements []struct {
+		OverpassType string  `json:"type"`
+		Lon          float64 `json:"lon"`
+		Lat          float64 `json:"lat"`
+		Bounds       struct {
+			MinLat float64 `json:"minlat"`
+			MinLon float64 `json:"minLon"`
+			MaxLat float64 `json:"maxLat"`
+			MaxLon float64 `json:"maxLon"`
+		} `json:"bounds"`
+		Tags struct {
+			Name    string `json:"name"`
+			Website string `json:"website"`
+		} `json:"tags"`
+	} `json:"elements"`
+}
+
+func getCampsites(referenceLocation location) ([]Campsite, error) {
+	// TODO: maybe useful for debugging/testing:
+
+	// lon1 := coordinate(11.0)
+	// lat1 := coordinate(50.0)
+	// lon2 := coordinate(13.0)
+	// lat2 := coordinate(53.0)
+	// lon3 := coordinate(9.708282)
+	// lat3 := coordinate(52.374027)
+
+	// camp1 := newCampsite(location{Lon: &lon1, Lat: &lat1}, referenceLocation)
+	// camp2 := newCampsite(location{Lon: &lon2, Lat: &lat2}, referenceLocation)
+	// camp3 := newCampsite(location{Lon: &lon3, Lat: &lat3}, referenceLocation)
+
+	// return []Campsite{camp1, camp2, camp3}, nil
+
+	overpassURL := "https://overpass-api.de/api/interpreter"
+
+	query := fmt.Sprintf(`[out:json];nwr["tourism"="camp_site"]["tent"!="no"](around:%d,%v,%v);out geom;`, maxOverpassDistance*1000, *referenceLocation.Lat, *referenceLocation.Lon)
+
+	resp, err := http.Post(overpassURL, "text/plain", bytes.NewBuffer([]byte(query)))
 
 	if err != nil {
-		http.Error(w, "Could not load stats page", http.StatusInternalServerError)
+		log.Println("Could not fetch campsites")
+		return nil, err
 	}
 
-	var todayVisitors, todayRequests, last7DaysVisitors, last7DaysRequests, last30DaysVisitors, last30DaysRequests int
+	defer resp.Body.Close()
 
-	todayVisitors, todayRequests = t.getStats(0)
-	last7DaysVisitors, last7DaysRequests = t.getStats(7)
-	last30DaysVisitors, last30DaysRequests = t.getStats(30)
-
-	statsData := struct {
-		TodayVisitors      int
-		TodayRequests      int
-		Last7DaysVisitors  int
-		Last7DaysRequests  int
-		Last30DaysVisitors int
-		Last30DaysRequests int
-	}{
-		todayVisitors,
-		todayRequests,
-		last7DaysVisitors,
-		last7DaysRequests,
-		last30DaysVisitors,
-		last30DaysRequests,
+	var overpassResult = overpassResult{}
+	if err := json.NewDecoder(resp.Body).Decode(&overpassResult); err != nil {
+		log.Println("Error unmarshalling overpass result:", err)
+		return nil, err
 	}
 
-	tmpl.Execute(w, statsData)
-}
+	campsites := []Campsite{}
 
-var t *tracker
-
-type tracker struct {
-	db *sql.DB
-}
-
-func newTracker() *tracker {
-	if _, err := os.Stat("./data"); os.IsNotExist(err) {
-		// Make data directory if it doesn't exist yet
-		err := os.Mkdir("./data", 0700)
-		if err != nil {
-			log.Fatal("Could not create data directory:", err)
+	for _, element := range overpassResult.Elements {
+		var lon, lat coordinate
+		switch element.OverpassType {
+		case "node":
+			lon = coordinate(element.Lon)
+			lat = coordinate(element.Lat)
+		case "way", "relation":
+			lon = coordinate((element.Bounds.MinLon + element.Bounds.MaxLon) / 2)
+			lat = coordinate((element.Bounds.MinLat + element.Bounds.MaxLat) / 2)
 		}
+
+		campsite := newCampsite(location{Lon: &lon, Lat: &lat}, referenceLocation)
+		campsite.Name = element.Tags.Name
+		campsite.Website = element.Tags.Website
+
+		campsites = append(campsites, campsite)
 	}
 
-	db, err := sql.Open("sqlite3", "data/stats.sqlite")
-	if err != nil {
-		log.Fatal("Error opening database file:", err)
-	}
-
-	createTableStatement := `
-		CREATE TABLE IF NOT EXISTS stats (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-			ip_address TEXT NOT NULL,
-			username TEXT
-		);
-	`
-
-	if _, err := db.Exec(createTableStatement); err != nil {
-		log.Fatal("Error creating stats table:", err)
-	}
-
-	return &tracker{db: db}
+	return campsites, nil
 }
 
-func (tracker *tracker) addEntry(ip string, username *string) {
-	stmt, err := tracker.db.Prepare("INSERT INTO stats (ip_address, username) VALUES (?, ?)")
+func getWeather(lat coordinate, lon coordinate) (WeatherSummary, error) {
+
+	owmApiKey, exists := os.LookupEnv("OPEN_WEATHER_MAP_API_KEY")
+
+	if !exists {
+		log.Fatal("Environment variable OPEN_WEATHER_MAP_API_KEY not found.")
+	}
+
+	// Request weather forecast for next 12 hours in 3-hour blocks (4 items in total)
+	owmUrl := fmt.Sprintf("https://api.openweathermap.org/data/2.5/forecast?lat=%f&lon=%f&appid=%s&units=metric&cnt=2", lat, lon, owmApiKey)
+
+	resp, err := http.Get(owmUrl)
 	if err != nil {
-		log.Fatal("Error writing data to stats table:", err)
+		log.Println(err)
+	}
+	defer resp.Body.Close()
+
+	var weatherForecast WeatherForecast
+
+	if err := json.NewDecoder(resp.Body).Decode(&weatherForecast); err != nil {
+		log.Println(err)
 	}
 
-	if _, err := stmt.Exec(ip, &username); err != nil {
-		log.Fatal(err)
-	}
-}
+	currentWeather := weatherForecast.List[0]
+	nextWeather := weatherForecast.List[1]
 
-func (tracker *tracker) clean() {
-	query := `
-		DELETE
-		FROM stats
-		WHERE date(timestamp) < date(datetime('now', '-30 days'));`
-
-	_, err := tracker.db.Exec(query)
-	if err != nil {
-		log.Println("Error cleaning up old entries in tracking database:", err)
-	}
-
-	log.Println("Cleaned up old entries in tracking database")
-}
-
-func (tracker *tracker) getStats(n int) (int, int) {
-	query := `
-	SELECT COUNT(DISTINCT ip_address) as visitors, COUNT(*) as requests 
-	FROM stats
-	WHERE date(timestamp) >= date(datetime('now', '-' || ? || ' days'));`
-
-	row := tracker.db.QueryRow(query, n)
-	var visitors, requests int
-	err := row.Scan(&visitors, &requests)
-	if err != nil {
-		log.Fatal(err)
+	weatherSummary := WeatherSummary{
+		CurrentTemperature: int(math.Round(currentWeather.Main.Temp)),
+		FutureTemperature:  int(math.Round(nextWeather.Main.Temp)),
+		CurrentWindSpeed:   int(math.Round(currentWeather.Wind.Speed * 3.6)),
+		FutureWindSpeed:    int(math.Round(nextWeather.Wind.Speed * 3.6)),
+		CurrentWindGust:    int(math.Round(currentWeather.Wind.Gust * 3.6)),
+		FutureWindGust:     int(math.Round(nextWeather.Wind.Gust * 3.6)),
+		CurrentWindDegrees: currentWeather.Wind.Deg,
+		FutureWindDegrees:  nextWeather.Wind.Deg,
+		CurrentWindScale:   currentWeather.Wind.scale(),
+		FutureWindScale:    nextWeather.Wind.scale(),
+		CurrentRain:        currentWeather.Rain.rainIntensity(),
+		FutureRain:         nextWeather.Rain.rainIntensity(),
+		CurrentRainText:    currentWeather.Rain.rainText(),
+		FutureRainText:     nextWeather.Rain.rainText(),
+		SunsetTime:         weatherForecast.SunsetLocalTime(),
 	}
 
-	return visitors, requests
+	return weatherSummary, nil
+
+	// TODO: maybe useful for debugging/testing:
+
+	// return WeatherSummary{
+	// 	CurrentTemperature: 10,
+	// 	FutureTemperature:  13,
+	// 	CurrentWindSpeed:   8,
+	// 	FutureWindSpeed:    23,
+	// 	CurrentWindGust:    13,
+	// 	FutureWindGust:     51,
+	// 	CurrentWindDegrees: 13,
+	// 	FutureWindDegrees:  113,
+	// 	CurrentRain:        0,
+	// 	FutureRain:         0,
+	// 	CurrentRainText:    "dry",
+	// 	FutureRainText:     "dry",
+	// 	SunsetTime:         "19:13",
+	// }, nil
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
-		// http.Redirect(w, r, "/404", http.StatusMovedPermanently)
 		http.NotFound(w, r)
 		return
 	}
@@ -422,65 +424,104 @@ func colorHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-func weatherHandler(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	latStr := query.Get("lat")
-	lonStr := query.Get("lon")
-	if latStr == "" || lonStr == "" {
-		http.Error(w, "Missing query parameters: both 'lat' and 'lon' are required.", http.StatusBadRequest)
+func positionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	lat, err := strconv.ParseFloat(latStr, 64)
-	if err != nil {
-		http.Error(w, "Invalid latitude value.", http.StatusBadRequest)
+	formLon := r.PostFormValue("lon")
+	formLat := r.PostFormValue("lat")
+
+	if formLon == "" || formLat == "" {
+		http.Error(w, "lon and lat must be provided", http.StatusBadRequest)
 		return
 	}
 
-	lon, err := strconv.ParseFloat(lonStr, 64)
-	if err != nil {
-		http.Error(w, "Invalid longitude value.", http.StatusBadRequest)
+	// lon :=
+	lon, lonErr := strconv.ParseFloat(formLon, 64)
+	lat, latErr := strconv.ParseFloat(formLat, 64)
+
+	if lonErr != nil || latErr != nil {
+		http.Error(w, "lon and lat must be numbers", http.StatusBadRequest)
 		return
 	}
-	weatherSummary, err := getWeather(lat, lon)
 
+	lonCoord := coordinate(lon)
+	latCoord := coordinate(lat)
+	userLocation := location{Lon: &lonCoord, Lat: &latCoord}
+
+	weatherSummary, err := getWeather(*userLocation.Lat, *userLocation.Lon)
 	if err != nil {
-		http.Error(w, "Could not get current weather", http.StatusInternalServerError)
+		http.Error(w, "Could not fetch weather data", http.StatusInternalServerError)
+		return
 	}
 
-	log.Println(weatherSummary)
+	campsites, err := getCampsites(userLocation)
+	if err != nil {
+		http.Error(w, "Could not fetch campsite data", http.StatusInternalServerError)
+		return
+	}
+	locationInfo := locationInfo{WeatherSummary: weatherSummary, Campsites: campsites}
+	log.Println(locationInfo)
 
-	tmpl := template.Must(template.ParseFiles("./templates/snippets/weather.html"))
-	tmpl.Execute(w, weatherSummary)
+	tmpl := template.Must(template.ParseFiles("./templates/fragments/position.html"))
+	tmpl.Execute(w, locationInfo)
 }
 
-// func notFoundHandler(w http.ResponseWriter, r *http.Request) {
-// 	http.NotFound(w, r)
+func aboutHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "max-age=86400") // 1 day
 
-// }
+	tmpl := template.Must(template.ParseFiles("./templates/fragments/info-modal.html"))
+	tmpl.Execute(w, nil)
+}
+
+func errorHandler(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	errorType := query.Get("type")
+	if errorType == "" {
+		http.Error(w, "Missing query parameter 'type'", http.StatusBadRequest)
+		return
+	}
+
+	var errorMessage, errorTitle string
+
+	switch errorType {
+	case "location":
+		errorMessage = "This site doesn't work without location permission."
+		errorTitle = "Error"
+	case "orientation":
+		errorMessage = "Active user input is necessary to access your iPhone's orientation sensors for the compass to work correctly. Touch the compass to confirm."
+		errorTitle = "iOS Information"
+	default:
+		http.Error(w, "Unknown error type", http.StatusBadRequest)
+		return
+	}
+
+	data := struct {
+		ErrorTitle   string
+		ErrorType    string
+		ErrorMessage string
+	}{
+		ErrorTitle:   errorTitle,
+		ErrorType:    errorType,
+		ErrorMessage: errorMessage,
+	}
+
+	w.Header().Set("Cache-Control", "max-age=86400") // 1 day
+
+	tmpl := template.Must(template.ParseFiles("./templates/fragments/error-modal.html"))
+	tmpl.Execute(w, data)
+}
 
 func main() {
-	// t = newTracker()
-
-	// defer t.db.Close()
-
-	// go func() {
-	// 	for {
-	// 		t.clean()
-	// 		time.Sleep(24 * time.Hour)
-	// 	}
-	// }()
-
-	// http.HandleFunc("/hello", statusHandler)
-	// http.HandleFunc("/", rootHandler)
-	// http.HandleFunc("/weather", weatherHandler)
-	// http.HandleFunc("/stats", siteStatsHandler)
 	staticFileserver := http.FileServer(http.Dir("./static"))
 	http.Handle("/static/", http.StripPrefix("/static/", staticFileserver))
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/color", colorHandler)
-	http.HandleFunc("/weather", weatherHandler)
-	// http.HandleFunc("/404", notFoundHandler)
+	http.HandleFunc("/position", positionHandler)
+	http.HandleFunc("/about", aboutHandler)
+	http.HandleFunc("/error", errorHandler)
 
 	log.Println("Server running on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

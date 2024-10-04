@@ -1,15 +1,70 @@
-const openModal = (modalIdentifier) => {
-    document.getElementById(`${modalIdentifier}-modal`).style.visibility = 'visible';
-    document.getElementById('site-info').style.visibility = 'hidden';
-}
-
-const closeModal = (modalIdentifier) => {
-    document.getElementById(`${modalIdentifier}-modal`).style.visibility = 'hidden';
-    document.getElementById('site-info').style.visibility = 'visible';
-}
-
 const renderCompassAndInfo = (position) => {
-    htmx.ajax('GET', `/weather?lat=${position.lat}&lon=${position.lon}`, '#welcome-info');
+    const body = {
+        lat: position.lat, 
+        lon: position.lon,
+    }
+
+    htmx.ajax(
+        'POST',
+        '/position',
+        {
+            target: '#welcome-info',
+            swap: 'outerHTML',
+            values: body,
+        }
+    )
+        .then(() => addCompassRotation())
+}
+
+const addRegularOrientationEventListener = () => {
+    window.addEventListener("deviceorientationabsolute", event => {
+        document.getElementById('#compass').style = `transform: rotate(${event.alpha}deg)`;
+    }, true);
+}
+
+const addIosOrientationEventListener = () => {
+    window.addEventListener("deviceorientation", event => {
+        document.getElementById('#compass').style = `transform: rotate(${-event.webkitCompassHeading}deg)`;
+    })
+}
+
+const compassClickHandler = () => {
+    DeviceOrientationEvent.requestPermission()
+        .then(response => {
+            if (response === "granted") {
+                addIosOrientationEventListener();
+            } else {
+                console.warn("Could not get permissions for iPhone's sensors. Compass rotation won't work.")
+            }
+        })
+        .catch(() => console.warn("An error occured when trying to request the sensor permissions."))
+}
+
+const addCompassRotation = () => {
+    if (typeof DeviceOrientationEvent.requestPermission === "function") {
+        // iOS 13 or higher
+        DeviceOrientationEvent.requestPermission()
+            .then(response => {
+                if (response === "granted") {
+                    // Permission has already been given.
+                    addIosOrientationEventListener();
+                }
+            })
+            .catch(() => {
+                // Permission has not yet been given. Inform the user and
+                // call for action. If the user clicks the compass, they
+                // will be asked for sensor permissions, which should then
+                // automatically enable compass rotation.
+                htmx.ajax('GET', '/error?type=orientation', {
+                    target: 'body',
+                    swap: 'beforeend'
+                })
+                compass.addEventListener("click", compassClickHandler);
+            })
+    } else {
+        // Other OS
+        addRegularOrientationEventListener();
+    }
 }
 
 const getPosition = () => {
@@ -23,7 +78,10 @@ const getPosition = () => {
     }
 
     const locationFailure = () => {
-        openModal('location-error');
+        htmx.ajax('GET', '/error?type=location', {
+            target: 'body',
+            swap: 'beforeend'
+        })
     }
 
     const locationOptions = {
@@ -40,84 +98,3 @@ const getPosition = () => {
 }
 
 getPosition();
-
-
-
-
-// navigator.geolocation.getCurrentPosition(
-//     position => {
-//         console.log(position);
-//         // const request = new Request(`/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
-//         // fetch(request)
-//         //     .then(res => res.text())
-//         //     .then(snippet => {
-//         //         console.log(snippet);
-//         //         htmx.ajax
-//         //     })
-//         htmx.ajax('GET', `/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}`, '#weather');
-//     }
-// )
-
-// navigator.geolocation.getCurrentPosition(
-//     position => {
-//         const request = new Request(`/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
-//         fetch(request)
-//             .then(res => res.json())
-//             .then(data => {
-//                 document.getElementById("currentTemp").innerText = data.temp_current;
-//                 document.getElementById("futureTemp").innerText = data.temp_future;
-//                 document.getElementById("currentWindSpeed").innerText = data.wind_current;
-//                 document.getElementById("futureWindSpeed").innerText = data.wind_future;
-//                 document.getElementById("currentWindGust").innerText = data.wind_gust_current;
-//                 document.getElementById("futureWindGust").innerText = data.wind_gust_future;
-//                 document.getElementById("sunsetTime").innerText = data.sunset;
-
-//                 const currentWindArrow = document.getElementById("currentWindArrow")
-//                 currentWindArrow.innerHTML = arrowSvg
-//                 currentWindArrow.style = `transform: rotate(${data.wind_deg_current}deg) scale(${(data.wind_current / 120)**0.2})`;
-//                 const futureWindArrow = document.getElementById("futureWindArrow")
-//                 futureWindArrow.innerHTML = arrowSvg
-//                 futureWindArrow.style = `transform: rotate(${data.wind_deg_future}deg) scale(${(data.wind_future / 120)**0.2})`;
-
-//                 document.getElementById("currentRain").innerText = rainSymbol(data.rain_current);
-//                 document.getElementById("futureRain").innerText = rainSymbol(data.rain_future);
-//             })
-//             .catch(error => console.warn("Something went wrong when trying to handle the weather data."))
-        
-//         // Get nearest campsites from overpass api
-//         const overpassRequest = new Request("https://overpass-api.de/api/interpreter", {
-//             method: "POST",
-//             body: `[out:json];nwr["tourism"="camp_site"]["tent"!="no"](around:25000.0,${position.coords.latitude},${position.coords.longitude});out geom;`,
-//         })
-//         fetch(overpassRequest)
-//             .then(res => res.json())
-//             .then(data => {
-//                 const sites = data.elements.map(el => {
-//                     if (el.type === "node") {
-//                         return {
-//                             direction: bearing(position.coords.latitude, position.coords.longitude, el.lat, el.lon),
-//                             distance: haversineDistance(position.coords.latitude, position.coords.longitude, el.lat, el.lon),
-//                         }
-//                     } else if (el.type === "way" || el.type === "relation") {
-//                         const lat = (el.bounds.maxlat + el.bounds.minlat) / 2
-//                         const lon = (el.bounds.maxlon + el.bounds.minlon) / 2
-
-//                         return {
-//                             direction: bearing(position.coords.latitude, position.coords.longitude, lat, lon),
-//                             distance: haversineDistance(position.coords.latitude, position.coords.longitude, lat, lon),
-//                         }
-//                     }
-//                 })
-
-//                 sites.forEach(site => {
-//                     const newSite = document.createElement("div");
-//                     newSite.innerHTML = `${Math.round(site.distance)}<br>*`;
-//                     newSite.className = "compassSite";
-//                     newSite.style = `transform: rotate(${site.direction}deg) translateY(-20px);`;
-//                     compass.appendChild(newSite);
-//                 })
-//             })
-//     },
-//     locationError,
-//     locationOptions
-// )

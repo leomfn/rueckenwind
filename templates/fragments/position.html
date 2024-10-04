@@ -1,0 +1,46 @@
+<div id="cycle-banner">🚴🚴‍♂️🍃💨</div>
+<div id="compass-weather-info">
+    <div id="compass" class="compass">
+        {{range .Campsites}}
+            <div class="compass-site" style="rotate: {{.Bearing}}deg; transform: translateY(-{{.DistancePixel}}px);">
+                {{.DistanceText}}
+            </div>
+            <div class="compass-site site-indicator" style="rotate: {{.Bearing}}deg; height: calc(62px + {{.DistancePixel}}px);">
+            </div>
+        {{end}}
+        <div id="compass-circle"></div>
+        <div class="direction" style="left: 50%; top: 10px; transform: translateX(-50%);">N</div>
+        <div class="direction" style="top: 50%; right: 10px; transform: translateY(-50%);">E</div>
+        <div class="direction" style="left: 50%; bottom: 10px; transform: translateX(-50%);">S</div>
+        <div class="direction" style="top: 50%; left: 10px; transform: translateY(-50%);">W</div>
+
+        <div class="arrow future" id="futureWindArrow" style="rotate: {{.FutureWindDegrees}}deg; scale: {{.FutureWindScale}}">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 23V1 M10 20L12 23L14 20" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="arrow current" id="currentWindArrow" style="rotate: {{.CurrentWindDegrees}}deg; scale: {{.CurrentWindScale}}">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 23V1 M10 20L12 23L14 20" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+    </div>
+    <div id="weather-info">
+        <div class="info-row">
+            <img src="/static/images/thermometer.svg"><span class="current">{{.CurrentTemperature}}</span> <span class="future">{{.FutureTemperature}}</span> °C
+        </div>
+        <div class="info-row">
+            <img src="/static/images/wind.svg"><span class="current">{{.CurrentWindSpeed}}</span> <span class="future">{{.FutureWindSpeed}}</span> km/h
+        </div>
+        <div class="info-row">
+            <img src="/static/images/tornado.svg"><span class="current">{{.CurrentWindGust}}</span> <span class="future">{{.FutureWindGust}}</span> km/h
+        </div>
+        <div class="info-row">
+            <img src="/static/images/cloud-rain-wind.svg"><span class="current">{{.CurrentRainText}}</span> <span class="future">{{.FutureRainText}}</span>
+        </div>
+        <br>
+        <div class="info-row">
+            <img src="/static/images/sunset.svg"><span class="current">{{.SunsetTime}}</span>
+        </div>
+    </div>
+</div>
