@@ -15,6 +15,7 @@ import (
 
 var (
 	maxOverpassDistance int64
+	owmApiKey           string
 )
 
 func init() {
@@ -27,9 +28,14 @@ func init() {
 		maxOverpassDistance, err = strconv.ParseInt(maxOverpassDistanceEnv, 10, 64)
 
 		if err != nil {
-			log.Fatal("Environment variable MAX_OVERPASS_DISTANCE must be an integer")
+			log.Fatal("Environment variable MAX_OVERPASS_DISTANCE must be an integer.")
 		}
+	}
 
+	owmApiKey, exists = os.LookupEnv("OPEN_WEATHER_MAP_API_KEY")
+
+	if !exists {
+		log.Fatal("Environment variable OPEN_WEATHER_MAP_API_KEY not found.")
 	}
 }
 
@@ -108,7 +114,6 @@ func (w Wind) scale() float64 {
 	}
 
 	scale := 0.2 + 0.8*math.Tanh(0.03*speed)
-	log.Println(speed, scale)
 
 	return scale
 }
@@ -331,26 +336,21 @@ func getCampsites(referenceLocation location) ([]Campsite, error) {
 }
 
 func getWeather(lat coordinate, lon coordinate) (WeatherSummary, error) {
-
-	owmApiKey, exists := os.LookupEnv("OPEN_WEATHER_MAP_API_KEY")
-
-	if !exists {
-		log.Fatal("Environment variable OPEN_WEATHER_MAP_API_KEY not found.")
-	}
-
 	// Request weather forecast for next 12 hours in 3-hour blocks (4 items in total)
 	owmUrl := fmt.Sprintf("https://api.openweathermap.org/data/2.5/forecast?lat=%f&lon=%f&appid=%s&units=metric&cnt=2", lat, lon, owmApiKey)
 
 	resp, err := http.Get(owmUrl)
 	if err != nil {
-		log.Println(err)
+		log.Println("Error when fetching weather from openweather:", err)
+		return WeatherSummary{}, err
 	}
 	defer resp.Body.Close()
 
 	var weatherForecast WeatherForecast
 
 	if err := json.NewDecoder(resp.Body).Decode(&weatherForecast); err != nil {
-		log.Println(err)
+		log.Println("Error when unmarshalling openweathermap response:", err)
+		return WeatherSummary{}, err
 	}
 
 	currentWeather := weatherForecast.List[0]
@@ -438,7 +438,6 @@ func positionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// lon :=
 	lon, lonErr := strconv.ParseFloat(formLon, 64)
 	lat, latErr := strconv.ParseFloat(formLat, 64)
 
@@ -463,7 +462,6 @@ func positionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	locationInfo := locationInfo{WeatherSummary: weatherSummary, Campsites: campsites}
-	log.Println(locationInfo)
 
 	tmpl := template.Must(template.ParseFiles("./templates/fragments/position.html"))
 	tmpl.Execute(w, locationInfo)

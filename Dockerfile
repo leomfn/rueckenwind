@@ -5,18 +5,18 @@ RUN apk add build-base
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN go mod download
 
 COPY *.go ./
 
-RUN go build -ldflags="-extldflags=-static" -v -o ./windeows
+RUN GOOS=linux GOARCH=amd64 go build -v -o ./windeows
 
-FROM gcr.io/distroless/base-debian12
+FROM gcr.io/distroless/static-debian12
 
 WORKDIR /app
 
 COPY --from=builder /app/windeows ./windeows
 
-COPY *.html ./
+COPY static/ ./static
+COPY templates/ ./templates
 
 ENTRYPOINT [ "/app/windeows" ]
