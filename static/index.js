@@ -18,13 +18,13 @@ const renderCompassAndInfo = (position) => {
 
 const addRegularOrientationEventListener = () => {
     window.addEventListener("deviceorientationabsolute", event => {
-        document.getElementById('#compass').style = `transform: rotate(${event.alpha}deg)`;
+        document.getElementById('compass').style = `transform: rotate(${event.alpha}deg)`;
     }, true);
 }
 
 const addIosOrientationEventListener = () => {
     window.addEventListener("deviceorientation", event => {
-        document.getElementById('#compass').style = `transform: rotate(${-event.webkitCompassHeading}deg)`;
+        document.getElementById('compass').style = `transform: rotate(${-event.webkitCompassHeading}deg)`;
     })
 }
 
