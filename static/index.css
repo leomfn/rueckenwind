@@ -50,78 +50,65 @@ body {
     text-align: center;
 }
 
-#cycle-banner {
-    position: fixed;
-    top: 15px;
-    white-space: nowrap;
-    animation: cyclist 8s linear infinite;
-}
-
-@keyframes cyclist {
-    0% {
-        left: 100%;
-    }
-
-    100% {
-        left: -150%;
-    }
-}
-
 #site-info {
+    height: 5%;
     position: fixed;
-    bottom: 10%;
+    bottom: 5%;
     left: 50%;
     transform: translateX(-50%);
 }
 
+#compass-weather-info {
+    height: 90%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    bottom: 10%;
+    position: fixed;
+}
+
 #compass {
+    height: 50%;
+    width: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    border: 5px solid var(--tertiary);
-    border-radius: 50%;
-    width: 150px;
-    height: 150px;
-    position: relative;
-    margin: 1rem;
-    /* trying to smoothen the compass rotation */
-    transition: transform 0.1s ease-out;
+    position: fixed;
+    top: 5%;
+    /* trying to smoothen the compass rotation, which leads to the
+    compass jumping when rotation crosses 0/360 degrees */
+    /* transition: transform 0.1s ease-out; */
 }
 
 #compass-circle {
-    border: 5px solid --tertiary;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    width: 150px;
+    height: 150px;
+    border: 2px solid var(--tertiary);
     background-color: var(--background);
     border-radius: 50%;
-    width: 100%;
-    height: 100%;
     flex-shrink: 0;
-}
-
-#compass-weather-info {
-    height: 70%;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-evenly;
-    align-items: center;
-    top: 10%;
-    position: fixed;
 }
 
 .compass-site {
     position: absolute;
     display: flex;
-    width: 100%;
-    height: 100%;
+    width: 150px;
+    height: 150px;
     justify-content: center;
-    font-size: 0.5rem;
+    font-size: x-small;
+    color: var(--primary);
     text-align: center;
-    opacity: 50%;
     z-index: -1;
 }
 
 .site-indicator {
     width: 0;
-    border-left: 1px dotted black;
+    border-left: 1px dotted var(--primary);
     transform: translateY(-50%);
 }
 
@@ -145,14 +132,21 @@ body {
     stroke: var(--secondary);
 }
 
+.weather-info {
+    position: fixed;
+    bottom: 20%;
+    font-size: 1rem;
+}
+
 .info-row {
     display: flex;
     align-items: center;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.2rem;
 }
 
 .info-row img {
     padding-right: 1rem;
+    height: 1rem;
 }
 
 .info-row .current {
@@ -190,10 +184,6 @@ button {
     cursor: pointer;
 }
 
-button:hover {
-    border-color: var(--primary);
-}
-
 button:active {
     background-color: var(--secondary);
 }
@@ -207,7 +197,7 @@ button:active {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(0, 0, 0, 0.3);
     opacity: 1;
     transition: opacity 0.1s ease-out;
 }
@@ -227,11 +217,11 @@ button:active {
 .modal > .modal-content {
     width: 80%;
     max-width: 600px;
-    max-height: 70%;
+    max-height: 75%;
     top: 10%;
     position: fixed;
     overflow-y: scroll;
-    border: solid 1px black;
+    border: solid 1px var(--primary);
     border-radius: 5px;
     box-shadow: 0px 0px 20px 0px rgba(0,0,0,0.3);
     background-color: white;
@@ -239,8 +229,9 @@ button:active {
 }
 
 .modal-content > .close-container {
+    height: 5%;
     position: fixed;
-    bottom: 10%;
+    bottom: 5%;
     left: 50%;
     transform: translateX(-50%);
     text-align: center;
@@ -250,10 +241,6 @@ button:active {
 
 .close-container > button {
     background-color: var(--secondary);
-    border-color: var(--secondary);
-}
-
-.close-container > button:hover {
     border-color: var(--primary);
 }
 
