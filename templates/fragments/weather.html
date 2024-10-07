@@ -1,12 +1,6 @@
 <div id="compass-weather-info">
     <div id="compass" class="compass">
-        {{range .Campsites}}
-            <div class="compass-site" style="rotate: {{.Bearing}}deg; transform: translateY(-{{.DistancePixel}}px);">
-                {{.DistanceText}}
-            </div>
-            <div class="compass-site site-indicator" style="rotate: {{.Bearing}}deg; height: calc(62px + {{.DistancePixel}}px);">
-            </div>
-        {{end}}
+        <div id="sites-loader"></div>
         <div id="compass-circle">
             <div class="direction" style="left: 50%; top: 10px; transform: translateX(-50%);">N</div>
             <div class="direction" style="top: 50%; right: 10px; transform: translateY(-50%);">E</div>

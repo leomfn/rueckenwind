@@ -237,11 +237,6 @@ type WeatherSummary struct {
 	SunsetTime string `json:"sunset"`
 }
 
-type locationInfo struct {
-	WeatherSummary
-	Campsites []Campsite
-}
-
 type Campsite struct {
 	Bearing       float64
 	Distance      float64
@@ -426,7 +421,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-func positionHandler(w http.ResponseWriter, r *http.Request) {
+func weatherHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -452,21 +447,56 @@ func positionHandler(w http.ResponseWriter, r *http.Request) {
 	latCoord := coordinate(lat)
 	userLocation := location{Lon: &lonCoord, Lat: &latCoord}
 
-	weatherSummary, err := getWeather(*userLocation.Lat, *userLocation.Lon)
+	weatherData, err := getWeather(*userLocation.Lat, *userLocation.Lon)
 	if err != nil {
 		http.Error(w, "Could not fetch weather data", http.StatusInternalServerError)
 		return
 	}
 
+	tmpl := template.Must(template.ParseFiles("./templates/fragments/weather.html"))
+	tmpl.Execute(w, weatherData)
+}
+
+func sitesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	formLon := r.PostFormValue("lon")
+	formLat := r.PostFormValue("lat")
+
+	if formLon == "" || formLat == "" {
+		http.Error(w, "lon and lat must be provided", http.StatusBadRequest)
+		return
+	}
+
+	lon, lonErr := strconv.ParseFloat(formLon, 64)
+	lat, latErr := strconv.ParseFloat(formLat, 64)
+
+	if lonErr != nil || latErr != nil {
+		http.Error(w, "lon and lat must be numbers", http.StatusBadRequest)
+		return
+	}
+
+	lonCoord := coordinate(lon)
+	latCoord := coordinate(lat)
+	userLocation := location{Lon: &lonCoord, Lat: &latCoord}
+
 	campsites, err := getCampsites(userLocation)
+	sitesData := struct {
+		Campsites []Campsite
+	}{
+		Campsites: campsites,
+	}
+
 	if err != nil {
 		http.Error(w, "Could not fetch campsite data", http.StatusInternalServerError)
 		return
 	}
-	locationInfo := locationInfo{WeatherSummary: weatherSummary, Campsites: campsites}
 
-	tmpl := template.Must(template.ParseFiles("./templates/fragments/position.html"))
-	tmpl.Execute(w, locationInfo)
+	tmpl := template.Must(template.ParseFiles("./templates/fragments/sites.html"))
+	tmpl.Execute(w, sitesData)
 }
 
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
@@ -569,7 +599,9 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", staticFileserver))
 
 	http.Handle("/", trackingMiddleware(http.HandlerFunc(indexHandler)))
-	http.HandleFunc("/position", positionHandler)
+	// http.HandleFunc("/position", positionHandler)
+	http.HandleFunc("/weather", weatherHandler)
+	http.HandleFunc("/sites", sitesHandler)
 	http.Handle("/about", trackingMiddleware(http.HandlerFunc(aboutHandler)))
 	http.HandleFunc("/error", errorHandler)
 

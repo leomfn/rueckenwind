@@ -6,14 +6,26 @@ const renderCompassAndInfo = (position) => {
 
     htmx.ajax(
         'POST',
-        '/position',
+        '/weather',
         {
             target: '#welcome-info',
             swap: 'outerHTML',
             values: body,
         }
     )
-        .then(() => addCompassRotation())
+        .then(() => {
+            addCompassRotation()
+
+            htmx.ajax(
+                'POST',
+                '/sites',
+                {
+                    target: '#sites-loader',
+                    swap: 'outerHTML',
+                    values: body,
+                }
+            )
+        })
 }
 
 const addRegularOrientationEventListener = () => {

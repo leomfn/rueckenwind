@@ -34,7 +34,7 @@ body {
     background-color: var(--background);
 }
 
-.container {
+#container {
     width: 90%;
     max-width: 800px;
     height: 100%;
@@ -82,34 +82,70 @@ body {
 }
 
 #compass-circle {
+    width: 150px;
+    height: 150px;
     display: flex;
     justify-content: center;
     align-items: center;
-    position: relative;
-    width: 150px;
-    height: 150px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     border: 2px solid var(--tertiary);
     background-color: var(--background);
     border-radius: 50%;
     flex-shrink: 0;
 }
 
-.compass-site {
-    position: absolute;
-    display: flex;
+#sites-loader {
     width: 150px;
     height: 150px;
-    justify-content: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 20px var(--tertiary);
+    /* border: 2px solid var(--tertiary); */
+    /* background-color: var(--tertiary); */
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: pulse 0.5s alternate infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0;}
+    100% { opacity: 1; }
+}
+
+.compass-site {
+    position: absolute;
+    transform: translateY(-50%);
     font-size: x-small;
     color: var(--primary);
     text-align: center;
     z-index: -1;
+    animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+    0% { scale: 0.5; }
+    50% { scale: 1.05; }
+}
+
+.site-text {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .site-indicator {
+    height: calc(100% - 0.8rem);
     width: 0;
+    position: fixed;
+    bottom: 0;
+    left: 50%;
     border-left: 1px dotted var(--primary);
-    transform: translateY(-50%);
 }
 
 .direction {
@@ -175,7 +211,7 @@ button {
     width: 68px;
     height: 40px;
     border-style: solid;
-    border-width: 2px;
+    border-width: 1px;
     border-color: var(--tertiary);
     border-radius: 8px;
     padding: 10px 12px;
