@@ -16,6 +16,8 @@ import (
 var (
 	maxOverpassDistance int64
 	owmApiKey           string
+	domain              string
+	trackingURL         string
 )
 
 func init() {
@@ -36,6 +38,18 @@ func init() {
 
 	if !exists {
 		log.Fatal("Environment variable OPEN_WEATHER_MAP_API_KEY not found.")
+	}
+
+	domain, exists = os.LookupEnv("DOMAIN")
+
+	if !exists {
+		log.Fatal("Environment variable DOMAIN not found.")
+	}
+
+	trackingURL, exists = os.LookupEnv("TRACKING_URL")
+
+	if !exists {
+		log.Fatal("Environment variable TRACKING_URL not found.")
 	}
 }
 
@@ -412,18 +426,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-func colorHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl := template.Must(template.ParseFiles("./templates/color.html"))
-	data := struct {
-		Color   string
-		Message string
-	}{
-		Color:   "red",
-		Message: "Welcome",
-	}
-	tmpl.Execute(w, data)
-}
-
 func positionHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -468,7 +470,7 @@ func positionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "max-age=86400") // 1 day
+	// w.Header().Set("Cache-Control", "max-age=86400") // 1 day
 
 	tmpl := template.Must(template.ParseFiles("./templates/fragments/info-modal.html"))
 	tmpl.Execute(w, nil)
@@ -506,19 +508,69 @@ func errorHandler(w http.ResponseWriter, r *http.Request) {
 		ErrorMessage: errorMessage,
 	}
 
-	w.Header().Set("Cache-Control", "max-age=86400") // 1 day
+	// w.Header().Set("Cache-Control", "max-age=86400") // 1 day
 
 	tmpl := template.Must(template.ParseFiles("./templates/fragments/error-modal.html"))
 	tmpl.Execute(w, data)
 }
 
+type trackingBody struct {
+	Name     string `json:"name"`
+	Url      string `json:"url"`
+	Domain   string `json:"domain"`
+	Referrer string `json:"referrer"`
+}
+
+func trackingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := trackingBody{
+			Name:     "pageview",
+			Url:      r.URL.Path,
+			Domain:   domain,
+			Referrer: r.Referer(),
+		}
+
+		bodyJSON, err := json.Marshal(body)
+
+		if err != nil {
+			log.Println("Error marhsalling tracking body JSON")
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		trackingRequest, err := http.NewRequest("POST", trackingURL, bytes.NewBuffer(bodyJSON))
+
+		if err != nil {
+			log.Println("Failed to create POST request to tracking server:", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		trackingRequest.Header.Add("Content-Type", "application/json")
+		trackingRequest.Header.Add("User-Agent", r.Header.Get("User-Agent"))
+		trackingRequest.Header.Add("X-Forwarded-For", r.Header.Get("X-Forwarded-For"))
+
+		client := &http.Client{}
+
+		trackingResponse, err := client.Do(trackingRequest)
+
+		if err != nil || trackingResponse.StatusCode != 202 {
+			log.Println("Failed sending POST request to tracking server:", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	staticFileserver := http.FileServer(http.Dir("./static"))
 	http.Handle("/static/", http.StripPrefix("/static/", staticFileserver))
-	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/color", colorHandler)
+
+	http.Handle("/", trackingMiddleware(http.HandlerFunc(indexHandler)))
 	http.HandleFunc("/position", positionHandler)
-	http.HandleFunc("/about", aboutHandler)
+	http.Handle("/about", trackingMiddleware(http.HandlerFunc(aboutHandler)))
 	http.HandleFunc("/error", errorHandler)
 
 	log.Println("Server running on port 8080")
