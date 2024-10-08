@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,7 @@ var (
 	owmApiKey           string
 	domain              string
 	trackingURL         string
+	debug               bool
 )
 
 func init() {
@@ -50,6 +52,12 @@ func init() {
 
 	if !exists {
 		log.Fatal("Environment variable TRACKING_URL not found.")
+	}
+
+	debugEnv := strings.ToLower(os.Getenv("DEBUG"))
+	if debugEnv == "true" {
+		debug = true
+		log.Println("Running in Debug mode")
 	}
 }
 
@@ -553,6 +561,11 @@ type trackingBody struct {
 
 func trackingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if debug {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		body := trackingBody{
 			Name:     "pageview",
 			Url:      r.URL.Path,
