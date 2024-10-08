@@ -26,6 +26,21 @@ const renderCompassAndInfo = (position) => {
                 }
             )
         })
+        .then(() => {
+            document.getElementById('sites-fab-container').style.visibility = 'visible';
+
+            const sitesFabMain = document.getElementById('sites-fab-main');
+            const sitesFabChoices = document.getElementsByClassName('sites-fab-choices');
+
+            sitesFabMain.addEventListener('click', () => {
+                if (sitesFabMain.className.includes('sites-fab-selected')) {
+                    Array.from(sitesFabChoices).forEach(element => {
+                        element.style.visibility = 'visible';
+                    });
+                    
+                }
+            })
+        })
 }
 
 const addRegularOrientationEventListener = () => {
