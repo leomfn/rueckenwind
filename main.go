@@ -258,7 +258,7 @@ func newCampsite(campsiteLocation location, referenceLocation location) Campsite
 	}
 	maxPixel := 50.0
 	minPixel := 20.0
-	distancePixel := minPixel + (maxPixel-minPixel)*distance/float64(maxOverpassDistance)
+	distancePixel := minPixel + math.Log(distance+1)/math.Log(float64(maxOverpassDistance+1))*(maxPixel-minPixel)
 
 	return Campsite{
 		Bearing:       referenceLocation.bearing(campsiteLocation),
