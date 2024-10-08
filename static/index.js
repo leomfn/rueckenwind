@@ -35,9 +35,18 @@ const renderCompassAndInfo = (position) => {
             sitesFabMain.addEventListener('click', () => {
                 if (sitesFabMain.className.includes('sites-fab-selected')) {
                     Array.from(sitesFabChoices).forEach(element => {
-                        element.style.visibility = 'visible';
+                        // element.style.visibility = 'visible';
+                        element.classList.remove('collapsed');
+                        element.style.pointerEvents = 'auto';
+                        sitesFabMain.classList.remove('sites-fab-selected');
                     });
-                    
+                } else {
+                    Array.from(sitesFabChoices).forEach(element => {
+                        // element.style.visibility = 'hidden';
+                        element.classList.add('collapsed');
+                        element.style.pointerEvents = 'none';
+                        sitesFabMain.classList.add('sites-fab-selected');
+                    });
                 }
             })
         })
