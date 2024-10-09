@@ -713,6 +713,8 @@ type trackingBody struct {
 
 func trackingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("X-Forwarded-For:", r.Header.Get("X-Forwarded-For"))
+
 		if debug {
 			next.ServeHTTP(w, r)
 			return
