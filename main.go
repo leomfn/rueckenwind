@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -352,26 +354,62 @@ func newOverpassQuery(center location) *overpassQuery {
 // Executes queries to Overpass API to get drinking water and campsites
 func (o *overpassQuery) execute() error {
 	var err error
+	type chResult struct {
+		siteType string
+		result   overpassSites
+		err      error
+	}
 
 	// TODO: maybe use goroutines to get results in parallel?
-	o.campSites, err = o.getCampSites()
+	ch := make(chan chResult)
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	if err != nil {
-		return err
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	// Fetch campingsites in goroutine
+	go func() {
+		defer wg.Done()
+		campSites, err := o.getCampSites()
+		campSites.sortByDistance()
+		campSites.filterByBearing()
+		ch <- chResult{
+			siteType: "campsites",
+			result:   campSites,
+			err:      err,
+		}
+	}()
+
+	// Fetch drinking water sites in goroutine
+	go func() {
+		defer wg.Done()
+		drinkingWaterSites, err := o.getDrinkingWaterSites()
+		drinkingWaterSites.sortByDistance()
+		drinkingWaterSites.filterByBearing()
+		ch <- chResult{
+			siteType: "water",
+			result:   drinkingWaterSites,
+			err:      err,
+		}
+	}()
+
+	for sites := range ch {
+		if sites.err != nil {
+			return err
+		}
+
+		switch sites.siteType {
+		case "campsites":
+			o.campSites = sites.result
+		case "water":
+			o.drinkingWaterSites = sites.result
+		default:
+			return errors.New("something went wrong during concurrently fetching overpass data")
+		}
 	}
-
-	o.campSites.sortByDistance()
-	o.campSites.filterByBearing()
-
-	o.drinkingWaterSites, err = o.getDrinkingWaterSites()
-
-	if err != nil {
-		log.Println("Could not fetch campsites")
-		return err
-	}
-
-	o.drinkingWaterSites.sortByDistance()
-	o.drinkingWaterSites.filterByBearing()
 
 	return nil
 }
@@ -419,7 +457,7 @@ func (o *overpassQuery) getCampSites() (overpassSites, error) {
 }
 
 func (o *overpassQuery) getDrinkingWaterSites() (overpassSites, error) {
-
+	// TODO: optimize query, which takes very long due to the many conditions
 	query := fmt.Sprintf(`[out:json];(nwr["amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v);nwr["drinking_water"="yes"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v);nwr["disused:amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v););out geom;`,
 		o.maxDistance*1000, *o.center.Lat, *o.center.Lon,
 		o.maxDistance*1000, *o.center.Lat, *o.center.Lon,
