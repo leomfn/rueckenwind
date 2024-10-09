@@ -17,7 +17,6 @@ import (
 
 var (
 	maxOverpassDistance int64
-	maxSites            int64 // TODO: remove if not necessary
 	owmApiKey           string
 	domain              string
 	trackingURL         string
@@ -36,17 +35,6 @@ func init() {
 
 		if err != nil {
 			log.Fatal("Environment variable MAX_OVERPASS_DISTANCE must be an integer.")
-		}
-	}
-
-	maxSitesEnv, exists := os.LookupEnv("MAX_SITES")
-	if !exists {
-		maxSites = 10
-	} else {
-		maxSites, err = strconv.ParseInt(maxSitesEnv, 10, 64)
-
-		if err != nil {
-			log.Fatal("Environment variable MAX_SITES must be an integer.")
 		}
 	}
 
@@ -374,9 +362,6 @@ func (o *overpassQuery) execute() error {
 
 	o.campSites.sortByDistance()
 	o.campSites.filterByBearing()
-	// if len(o.campSites) > int(maxSites) {
-	// 	o.campSites = o.campSites[:maxSites]
-	// }
 
 	o.drinkingWaterSites, err = o.getDrinkingWaterSites()
 
@@ -387,9 +372,6 @@ func (o *overpassQuery) execute() error {
 
 	o.drinkingWaterSites.sortByDistance()
 	o.drinkingWaterSites.filterByBearing()
-	// if len(o.drinkingWaterSites) > int(maxSites) {
-	// 	o.drinkingWaterSites = o.drinkingWaterSites[:maxSites]
-	// }
 
 	return nil
 }
