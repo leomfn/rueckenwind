@@ -25,29 +25,68 @@ const renderCompassAndInfo = (position) => {
                     values: body,
                 }
             )
-        })
-        .then(() => {
-            document.getElementById('sites-fab-container').style.visibility = 'visible';
+            .then(() => {
+                document.getElementById('sites-fab-container').style.visibility = 'visible';
 
-            const sitesFabMain = document.getElementById('sites-fab-main');
-            const sitesFabChoices = document.getElementsByClassName('sites-fab-choices');
+                const sitesFabMain = document.getElementById('sites-fab-main');
+                const sitesFabChoices = document.getElementsByClassName('sites-fab-choices');
 
-            sitesFabMain.addEventListener('click', () => {
-                if (sitesFabMain.className.includes('sites-fab-selected')) {
-                    Array.from(sitesFabChoices).forEach(element => {
-                        // element.style.visibility = 'visible';
-                        element.classList.remove('collapsed');
-                        element.style.pointerEvents = 'auto';
-                        sitesFabMain.classList.remove('sites-fab-selected');
-                    });
-                } else {
-                    Array.from(sitesFabChoices).forEach(element => {
-                        // element.style.visibility = 'hidden';
-                        element.classList.add('collapsed');
-                        element.style.pointerEvents = 'none';
-                        sitesFabMain.classList.add('sites-fab-selected');
-                    });
-                }
+                sitesFabMain.addEventListener('click', () => {
+                    if (sitesFabMain.className.includes('sites-fab-selected')) {
+                        Array.from(sitesFabChoices).forEach(element => {
+                            element.classList.remove('collapsed');
+                            element.style.pointerEvents = 'auto';
+                            sitesFabMain.classList.remove('sites-fab-selected');
+                        });
+                    } else {
+                        Array.from(sitesFabChoices).forEach(element => {
+                            element.classList.add('collapsed');
+                            element.style.pointerEvents = 'none';
+                            sitesFabMain.classList.add('sites-fab-selected');
+                        });
+                    }
+                })
+
+                const campingButton = document.getElementById('sites-fab-camping');
+                const waterButton = document.getElementById('sites-fab-water');
+                const campingSites = document.getElementById('camping-sites');
+                const drinkingWaterSites = document.getElementById('drinking-water-sites');
+                
+                const campingIcon = document.createElement('img');
+                campingIcon.src = '/static/images/campsite.svg';
+
+                const waterIcon = document.createElement('img');
+                waterIcon.src = '/static/images/water.svg';
+
+                campingButton.addEventListener('click', () => {
+                    if (!campingButton.className.includes('sites-fab-selected')) {
+                        campingSites.classList.add('visible');
+                        campingButton.classList.add('sites-fab-selected');
+                        drinkingWaterSites.classList.add('hidden');
+
+                        campingSites.classList.remove('hidden');
+                        drinkingWaterSites.classList.remove('visible');
+                        waterButton.classList.remove('sites-fab-selected');
+                        sitesFabMain.innerHTML = "";
+                        sitesFabMain.appendChild(campingIcon);
+                    }
+                    sitesFabMain.click();
+                })
+                waterButton.addEventListener('click', () => {
+                    if (!waterButton.className.includes('sites-fab-selected')) {
+                        drinkingWaterSites.style.visibility = 'visible';
+                        drinkingWaterSites.classList.add('visible');
+                        waterButton.classList.add('sites-fab-selected');
+                        campingSites.classList.add('hidden');
+
+                        drinkingWaterSites.classList.remove('hidden');
+                        campingSites.classList.remove('visible');
+                        campingButton.classList.remove('sites-fab-selected');
+                        sitesFabMain.innerHTML = "";
+                        sitesFabMain.appendChild(waterIcon);
+                    }
+                    sitesFabMain.click();
+                })
             })
         })
 }

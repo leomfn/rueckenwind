@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 var (
 	maxOverpassDistance int64
+	maxSites            int64 // TODO: remove if not necessary
 	owmApiKey           string
 	domain              string
 	trackingURL         string
@@ -23,16 +25,28 @@ var (
 )
 
 func init() {
+	var err error
+
 	// Load environment variables
 	maxOverpassDistanceEnv, exists := os.LookupEnv("MAX_OVERPASS_DISTANCE")
 	if !exists {
 		maxOverpassDistance = 25
 	} else {
-		var err error
 		maxOverpassDistance, err = strconv.ParseInt(maxOverpassDistanceEnv, 10, 64)
 
 		if err != nil {
 			log.Fatal("Environment variable MAX_OVERPASS_DISTANCE must be an integer.")
+		}
+	}
+
+	maxSitesEnv, exists := os.LookupEnv("MAX_SITES")
+	if !exists {
+		maxSites = 10
+	} else {
+		maxSites, err = strconv.ParseInt(maxSitesEnv, 10, 64)
+
+		if err != nil {
+			log.Fatal("Environment variable MAX_SITES must be an integer.")
 		}
 	}
 
@@ -250,9 +264,45 @@ type OverpassSite struct {
 	Distance      float64
 	DistanceText  string
 	DistancePixel float64
-	siteType      string
 	Name          string
 	Website       string
+}
+
+type overpassSites []OverpassSite
+
+func (sites *overpassSites) sortByDistance() {
+	sort.Slice(*sites, func(i, j int) bool {
+		return (*sites)[i].Distance < (*sites)[j].Distance
+	})
+}
+
+func (sites *overpassSites) filterByBearing() {
+	angleFractions := map[int]bool{
+		0:  false,
+		1:  false,
+		2:  false,
+		3:  false,
+		4:  false,
+		5:  false,
+		6:  false,
+		7:  false,
+		8:  false,
+		9:  false,
+		10: false,
+		11: false,
+	}
+
+	var filteredSites overpassSites
+
+	for _, site := range *sites {
+		angleFraction := int((site.Bearing + 180) / 30)
+		if !angleFractions[angleFraction] {
+			filteredSites = append(filteredSites, site)
+			angleFractions[angleFraction] = true
+		}
+	}
+
+	*sites = filteredSites
 }
 
 func newSite(siteLocation location, referenceLocation location) OverpassSite {
@@ -299,8 +349,8 @@ type overpassQuery struct {
 	url                string
 	center             location
 	maxDistance        int64
-	campSites          []OverpassSite
-	drinkingWaterSites []OverpassSite
+	campSites          overpassSites
+	drinkingWaterSites overpassSites
 }
 
 func newOverpassQuery(center location) *overpassQuery {
@@ -310,9 +360,6 @@ func newOverpassQuery(center location) *overpassQuery {
 		maxDistance: maxOverpassDistance,
 	}
 }
-
-// func (o *overpassQuery) getDrinkingWaterSites() ([]DrinkingWaterSite, error) {
-// }
 
 // Executes queries to Overpass API to get drinking water and campsites
 func (o *overpassQuery) execute() error {
@@ -325,17 +372,29 @@ func (o *overpassQuery) execute() error {
 		return err
 	}
 
-	// o.drinkingWaterSites, err = o.getDrinkingWaterSites()
+	o.campSites.sortByDistance()
+	o.campSites.filterByBearing()
+	// if len(o.campSites) > int(maxSites) {
+	// 	o.campSites = o.campSites[:maxSites]
+	// }
 
-	// if err != nil {
-	// 	log.Println("Could not fetch campsites")
-	// 	return err
+	o.drinkingWaterSites, err = o.getDrinkingWaterSites()
+
+	if err != nil {
+		log.Println("Could not fetch campsites")
+		return err
+	}
+
+	o.drinkingWaterSites.sortByDistance()
+	o.drinkingWaterSites.filterByBearing()
+	// if len(o.drinkingWaterSites) > int(maxSites) {
+	// 	o.drinkingWaterSites = o.drinkingWaterSites[:maxSites]
 	// }
 
 	return nil
 }
 
-func (o *overpassQuery) getCampSites() ([]OverpassSite, error) {
+func (o *overpassQuery) getCampSites() (overpassSites, error) {
 
 	query := fmt.Sprintf(`[out:json];nwr["tourism"="camp_site"]["tent"!="no"](around:%d,%v,%v);out geom;`, o.maxDistance*1000, *o.center.Lat, *o.center.Lon)
 
@@ -354,7 +413,7 @@ func (o *overpassQuery) getCampSites() ([]OverpassSite, error) {
 		return nil, err
 	}
 
-	campsites := []OverpassSite{}
+	campsites := overpassSites{}
 
 	for _, element := range overpassResult.Elements {
 		var lon, lat coordinate
@@ -377,7 +436,7 @@ func (o *overpassQuery) getCampSites() ([]OverpassSite, error) {
 	return campsites, nil
 }
 
-func (o *overpassQuery) getDrinkingWaterSites() ([]OverpassSite, error) {
+func (o *overpassQuery) getDrinkingWaterSites() (overpassSites, error) {
 
 	query := fmt.Sprintf(`[out:json];(nwr["amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v);nwr["drinking_water"="yes"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v);nwr["disused:amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v););out geom;`,
 		o.maxDistance*1000, *o.center.Lat, *o.center.Lon,
@@ -399,7 +458,7 @@ func (o *overpassQuery) getDrinkingWaterSites() ([]OverpassSite, error) {
 		return nil, err
 	}
 
-	drinkingWaterSites := []OverpassSite{}
+	drinkingWaterSites := overpassSites{}
 
 	for _, element := range overpassResult.Elements {
 		var lon, lat coordinate
@@ -419,76 +478,6 @@ func (o *overpassQuery) getDrinkingWaterSites() ([]OverpassSite, error) {
 
 	return drinkingWaterSites, nil
 }
-
-// func getDrinkingWater(referenceLocation location) ([]DrinkingWaterSite, error) {
-// 	// Overpass query:
-// 	// [out:json];
-// 	// (
-// 	// nwr["amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:40000.0,52,10);
-// 	// nwr["drinking_water"="yes"]["access"!="permissive"]["access"!="private"](around:40000.0,52,10);
-// 	// nwr["disused:amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:40000.0,52,10);
-// 	// );
-// 	// out geom;
-
-// }
-
-// func getCampsites(referenceLocation location) ([]Campsite, error) {
-// 	// TODO: maybe useful for debugging/testing:
-
-// 	// lon1 := coordinate(11.0)
-// 	// lat1 := coordinate(50.0)
-// 	// lon2 := coordinate(13.0)
-// 	// lat2 := coordinate(53.0)
-// 	// lon3 := coordinate(9.708282)
-// 	// lat3 := coordinate(52.374027)
-
-// 	// camp1 := newCampsite(location{Lon: &lon1, Lat: &lat1}, referenceLocation)
-// 	// camp2 := newCampsite(location{Lon: &lon2, Lat: &lat2}, referenceLocation)
-// 	// camp3 := newCampsite(location{Lon: &lon3, Lat: &lat3}, referenceLocation)
-
-// 	// return []Campsite{camp1, camp2, camp3}, nil
-
-// 	overpassURL := "https://overpass-api.de/api/interpreter"
-
-// 	query := fmt.Sprintf(`[out:json];nwr["tourism"="camp_site"]["tent"!="no"](around:%d,%v,%v);out geom;`, maxOverpassDistance*1000, *referenceLocation.Lat, *referenceLocation.Lon)
-
-// 	resp, err := http.Post(overpassURL, "text/plain", bytes.NewBuffer([]byte(query)))
-
-// 	if err != nil {
-// 		log.Println("Could not fetch campsites")
-// 		return nil, err
-// 	}
-
-// 	defer resp.Body.Close()
-
-// 	var overpassResult = overpassResult{}
-// 	if err := json.NewDecoder(resp.Body).Decode(&overpassResult); err != nil {
-// 		log.Println("Error unmarshalling overpass result:", err)
-// 		return nil, err
-// 	}
-
-// 	campsites := []Campsite{}
-
-// 	for _, element := range overpassResult.Elements {
-// 		var lon, lat coordinate
-// 		switch element.OverpassType {
-// 		case "node":
-// 			lon = coordinate(element.Lon)
-// 			lat = coordinate(element.Lat)
-// 		case "way", "relation":
-// 			lon = coordinate((element.Bounds.MinLon + element.Bounds.MaxLon) / 2)
-// 			lat = coordinate((element.Bounds.MinLat + element.Bounds.MaxLat) / 2)
-// 		}
-
-// 		campsite := newCampsite(location{Lon: &lon, Lat: &lat}, referenceLocation)
-// 		campsite.Name = element.Tags.Name
-// 		campsite.Website = element.Tags.Website
-
-// 		campsites = append(campsites, campsite)
-// 	}
-
-// 	return campsites, nil
-// }
 
 func getWeather(lat coordinate, lon coordinate) (WeatherSummary, error) {
 	// Request weather forecast for next 12 hours in 3-hour blocks (4 items in total)
@@ -638,11 +627,9 @@ func sitesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("drinking water sites:", overpassQuery.drinkingWaterSites)
-
 	sitesData := struct {
-		CampSites          []OverpassSite
-		DrinkingWaterSites []OverpassSite
+		CampSites          overpassSites
+		DrinkingWaterSites overpassSites
 	}{
 		CampSites:          overpassQuery.campSites,
 		DrinkingWaterSites: overpassQuery.drinkingWaterSites,
@@ -757,7 +744,6 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", staticFileserver))
 
 	http.Handle("/", trackingMiddleware(http.HandlerFunc(indexHandler)))
-	// http.HandleFunc("/position", positionHandler)
 	http.HandleFunc("/weather", weatherHandler)
 	http.HandleFunc("/sites", sitesHandler)
 	http.Handle("/about", trackingMiddleware(http.HandlerFunc(aboutHandler)))
