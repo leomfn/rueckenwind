@@ -4,7 +4,7 @@
   "description": "Rückenwind (German for tailwind) helps you make decisions on your cycling trip. Check the current weather and find the nearest points of interest. Go with the wind.",
   "background_color": "#E5FCF5",
   "theme_color": "#E5FCF5",
-  "stat_url": "https://windy.earthcode.de",
+  "start_url": "https://windy.earthcode.de",
   "dir": "ltr",
   "scope": "https://windy.earthcode.de",
   "lang": "en",
