@@ -34,7 +34,6 @@ func init() {
 type server struct {
 	address string
 	mux     *http.ServeMux
-	path    string
 }
 
 func newServer() *server {
