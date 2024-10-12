@@ -6,7 +6,7 @@ const renderCompassAndInfo = (position) => {
 
     htmx.ajax(
         'POST',
-        '/weather',
+        '/data/weather',
         {
             target: '#welcome-info',
             swap: 'outerHTML',
@@ -18,7 +18,7 @@ const renderCompassAndInfo = (position) => {
 
             htmx.ajax(
                 'POST',
-                '/sites',
+                '/data/sites',
                 {
                     target: '#sites-loader',
                     swap: 'outerHTML',
