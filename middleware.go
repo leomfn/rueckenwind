@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 )
 
 type middlewareFunc func(http.Handler) http.Handler
@@ -29,18 +29,17 @@ func loggingMiddleware(next http.Handler) http.Handler {
 // TODO: this must be tested in live environment
 func sameSiteMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		refSchema := "https"
 		refDomain := domain
 		if debug {
 			refDomain = "localhost"
-			refSchema = "http"
 		}
 
-		validReferrer := fmt.Sprintf("%s://%s:%d/", refSchema, refDomain, port)
-		requestReferrer := r.Referer()
+		refHeader := r.Referer()
 
-		if requestReferrer != validReferrer {
-			log.Printf("Access to %s blocked, invalid referrer '%s'", r.URL.Path, requestReferrer)
+		requestReferrerURL, err := url.Parse(refHeader)
+
+		if err != nil || requestReferrerURL.Hostname() != refDomain {
+			log.Printf("Access to %s blocked, invalid referrer '%s'", r.URL.Path, refHeader)
 			http.Error(w, "Invalid Referer", http.StatusForbidden)
 			return
 		}
