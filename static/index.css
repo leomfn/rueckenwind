@@ -177,6 +177,10 @@ body {
     visibility: hidden;
 }
 
+#cafe-sites {
+    visibility: hidden;
+}
+
 .site-text {
     position: fixed;
     top: 0;
