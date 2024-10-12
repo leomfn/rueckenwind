@@ -9,7 +9,7 @@ func main() {
 	rootRouter.handle("GET", "/about", newAboutHandler(), sameSiteMiddleware, trackingMiddleware)
 	rootRouter.handle("GET", "/error", newErrorHandler(), sameSiteMiddleware, trackingMiddleware)
 
-	dataRouter := newRouter("localhost/data/")
+	dataRouter := newRouter("/data/")
 	dataRouter.handle("POST", "/weather", newWeatherHandler(), sameSiteMiddleware, trackingMiddleware)
 	dataRouter.handle("POST", "/sites", newSitesHandler(), sameSiteMiddleware, trackingMiddleware)
 
