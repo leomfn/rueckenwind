@@ -91,9 +91,6 @@ func trackingMiddleware(next http.Handler) http.Handler {
 		trackingRequest.Header.Add("User-Agent", r.Header.Get("User-Agent"))
 		trackingRequest.Header.Add("X-Forwarded-For", r.Header.Get("X-Forwarded-For"))
 
-		// TODO: delete if not used by self-hosted Plausible
-		trackingRequest.Header.Add("Referer", r.Referer())
-
 		client := &http.Client{}
 
 		trackingResponse, err := client.Do(trackingRequest)
