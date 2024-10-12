@@ -49,8 +49,10 @@ const renderCompassAndInfo = (position) => {
 
                 const campingButton = document.getElementById('sites-fab-camping');
                 const waterButton = document.getElementById('sites-fab-water');
+                const cafeButton = document.getElementById('sites-fab-cafe');
                 const campingSites = document.getElementById('camping-sites');
                 const drinkingWaterSites = document.getElementById('drinking-water-sites');
+                const cafeSites = document.getElementById('cafe-sites');
                 
                 const campingIcon = document.createElement('img');
                 campingIcon.src = '/static/images/campsite.svg';
@@ -58,15 +60,23 @@ const renderCompassAndInfo = (position) => {
                 const waterIcon = document.createElement('img');
                 waterIcon.src = '/static/images/water.svg';
 
+                const cafeIcon = document.createElement('img');
+                cafeIcon.src = '/static/images/coffee.svg';
+
                 campingButton.addEventListener('click', () => {
                     if (!campingButton.className.includes('sites-fab-selected')) {
                         campingSites.classList.add('visible');
-                        campingButton.classList.add('sites-fab-selected');
-                        drinkingWaterSites.classList.add('hidden');
-
                         campingSites.classList.remove('hidden');
+
+                        drinkingWaterSites.classList.add('hidden');
                         drinkingWaterSites.classList.remove('visible');
                         waterButton.classList.remove('sites-fab-selected');
+
+                        cafeSites.classList.add('hidden');
+                        cafeSites.classList.remove('visible');
+                        cafeButton.classList.remove('sites-fab-selected');
+
+                        campingButton.classList.add('sites-fab-selected');
                         sitesFabMain.innerHTML = "";
                         sitesFabMain.appendChild(campingIcon);
                     }
@@ -76,14 +86,39 @@ const renderCompassAndInfo = (position) => {
                     if (!waterButton.className.includes('sites-fab-selected')) {
                         drinkingWaterSites.style.visibility = 'visible';
                         drinkingWaterSites.classList.add('visible');
-                        waterButton.classList.add('sites-fab-selected');
-                        campingSites.classList.add('hidden');
-
                         drinkingWaterSites.classList.remove('hidden');
+
+                        campingSites.classList.add('hidden');
                         campingSites.classList.remove('visible');
                         campingButton.classList.remove('sites-fab-selected');
+
+                        cafeSites.classList.add('hidden');
+                        cafeSites.classList.remove('visible');
+                        cafeButton.classList.remove('sites-fab-selected');
+
+                        waterButton.classList.add('sites-fab-selected');
                         sitesFabMain.innerHTML = "";
                         sitesFabMain.appendChild(waterIcon);
+                    }
+                    sitesFabMain.click();
+                })
+                cafeButton.addEventListener('click', () => {
+                    if (!cafeButton.className.includes('sites-fab-selected')) {
+                        cafeSites.style.visibility = 'visible';
+                        cafeSites.classList.add('visible');
+                        cafeSites.classList.remove('hidden');
+
+                        drinkingWaterSites.classList.add('hidden');
+                        drinkingWaterSites.classList.remove('visible');
+                        waterButton.classList.remove('sites-fab-selected');
+
+                        campingSites.classList.add('hidden');
+                        campingSites.classList.remove('visible');
+                        campingButton.classList.remove('sites-fab-selected');
+
+                        cafeButton.classList.add('sites-fab-selected');
+                        sitesFabMain.innerHTML = "";
+                        sitesFabMain.appendChild(cafeIcon);
                     }
                     sitesFabMain.click();
                 })
