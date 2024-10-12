@@ -341,6 +341,7 @@ type overpassQuery struct {
 	maxDistance        int64
 	campSites          overpassSites
 	drinkingWaterSites overpassSites
+	cafeSites          overpassSites
 }
 
 func newOverpassQuery(center location) *overpassQuery {
@@ -363,7 +364,7 @@ func (o *overpassQuery) execute() error {
 	// TODO: maybe use goroutines to get results in parallel?
 	ch := make(chan chResult)
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
 		wg.Wait()
@@ -396,6 +397,19 @@ func (o *overpassQuery) execute() error {
 		}
 	}()
 
+	// Fetch cafes in goroutine
+	go func() {
+		defer wg.Done()
+		cafeSites, err := o.getCafeSites()
+		cafeSites.sortByDistance()
+		cafeSites.filterByBearing()
+		ch <- chResult{
+			siteType: "cafes",
+			result:   cafeSites,
+			err:      err,
+		}
+	}()
+
 	for sites := range ch {
 		if sites.err != nil {
 			return err
@@ -406,6 +420,8 @@ func (o *overpassQuery) execute() error {
 			o.campSites = sites.result
 		case "water":
 			o.drinkingWaterSites = sites.result
+		case "cafes":
+			o.cafeSites = sites.result
 		default:
 			return errors.New("something went wrong during concurrently fetching overpass data")
 		}
@@ -497,6 +513,47 @@ func (o *overpassQuery) getDrinkingWaterSites() (overpassSites, error) {
 	}
 
 	return drinkingWaterSites, nil
+}
+
+func (o *overpassQuery) getCafeSites() (overpassSites, error) {
+	// TODO: optimize query, which takes very long due to the many conditions
+	query := fmt.Sprintf(`[out:json];nwr["amenity"="cafe"](around:%d,%v,%v);out geom;`,
+		o.maxDistance*1000, *o.center.Lat, *o.center.Lon)
+
+	resp, err := http.Post(o.url, "text/plain", bytes.NewBuffer([]byte(query)))
+
+	if err != nil {
+		log.Println("Could not fetch cafe sites")
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var overpassResult = overpassResult{}
+	if err := json.NewDecoder(resp.Body).Decode(&overpassResult); err != nil {
+		log.Println("Error unmarshalling overpass result:", err)
+		return nil, err
+	}
+
+	cafeSites := overpassSites{}
+
+	for _, element := range overpassResult.Elements {
+		var lon, lat coordinate
+		switch element.OverpassType {
+		case "node":
+			lon = coordinate(element.Lon)
+			lat = coordinate(element.Lat)
+		case "way", "relation":
+			lon = coordinate((element.Bounds.MinLon + element.Bounds.MaxLon) / 2)
+			lat = coordinate((element.Bounds.MinLat + element.Bounds.MaxLat) / 2)
+		}
+
+		cafeSite := newSite(location{Lon: &lon, Lat: &lat}, o.center)
+
+		cafeSites = append(cafeSites, cafeSite)
+	}
+
+	return cafeSites, nil
 }
 
 func getWeather(lat coordinate, lon coordinate) (WeatherSummary, error) {
@@ -650,9 +707,11 @@ func sitesHandler(w http.ResponseWriter, r *http.Request) {
 	sitesData := struct {
 		CampSites          overpassSites
 		DrinkingWaterSites overpassSites
+		CafeSites          overpassSites
 	}{
 		CampSites:          overpassQuery.campSites,
 		DrinkingWaterSites: overpassQuery.drinkingWaterSites,
+		CafeSites:          overpassQuery.cafeSites,
 	}
 
 	tmpl := template.Must(template.ParseFiles("./templates/fragments/sites.html"))
