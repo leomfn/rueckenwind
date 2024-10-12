@@ -272,6 +272,7 @@ button {
 
 button:active {
     background-color: var(--secondary);
+    border-color: var(--secondary);
 }
 
 #sites-fab-container {
@@ -292,6 +293,7 @@ button:active {
 
 .sites-fab:active {
     background-color: var(--tertiary);
+    border-color: var(--tertiary);
 }
 
 .sites-fab-choices {
