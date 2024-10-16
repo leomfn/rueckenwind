@@ -102,6 +102,7 @@ type PoiService interface {
 	GetCampingPois(lon float64, lat float64) (models.OverpassSites, error)
 	GetDrinkingWaterPois(lon float64, lat float64) (models.OverpassSites, error)
 	GetCafePois(lon float64, lat float64) (models.OverpassSites, error)
+	GetObservationPois(lon float64, lat float64) (models.OverpassSites, error)
 }
 
 type overpassPoiService struct {
@@ -188,7 +189,7 @@ func (s *overpassPoiService) GetDrinkingWaterPois(lon float64, lat float64) (mod
 	foundPois, err := s.query(query)
 
 	if err != nil {
-		log.Println("Could not fetch campsites")
+		log.Println("Could not fetch drinking water")
 		return nil, err
 	}
 
@@ -208,7 +209,30 @@ func (s *overpassPoiService) GetCafePois(lon float64, lat float64) (models.Overp
 	foundPois, err := s.query(query)
 
 	if err != nil {
-		log.Println("Could not fetch campsites")
+		log.Println("Could not fetch cafes")
+		return nil, err
+	}
+
+	pois := s.convertOverpassResults(foundPois, lon, lat)
+	pois.SortByDistance()
+	pois.FilterByBearing()
+
+	return pois, nil
+}
+
+func (s *overpassPoiService) GetObservationPois(lon float64, lat float64) (models.OverpassSites, error) {
+	query := fmt.Sprintf(`[out:json];(nwr["man_made"="tower"]["tower:type"="observation"](around:%d,%v,%v);nwr["leisure"="bird_hide"](around:%d,%v,%v););out geom;`,
+		s.maxDistance*1000,
+		lat,
+		lon,
+		s.maxDistance*1000,
+		lat,
+		lon)
+
+	foundPois, err := s.query(query)
+
+	if err != nil {
+		log.Println("Could not fetch observation sites")
 		return nil, err
 	}
 
