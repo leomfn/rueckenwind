@@ -8,7 +8,7 @@ import (
 	"math"
 	"net/http"
 
-	"github.com/leomfn/rueckenwind/models"
+	"github.com/leomfn/rueckenwind/internal/models"
 )
 
 // Weather

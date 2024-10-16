@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/leomfn/rueckenwind/internal/models"
 	"github.com/leomfn/rueckenwind/internal/services"
-	"github.com/leomfn/rueckenwind/models"
 )
 
 // Index page
