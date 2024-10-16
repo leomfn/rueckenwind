@@ -206,6 +206,8 @@ func (h *poiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		poiResults, err = h.service.GetDrinkingWaterPois(h.lon, h.lat)
 	case "cafe":
 		poiResults, err = h.service.GetCafePois(h.lon, h.lat)
+	case "observation":
+		poiResults, err = h.service.GetObservationPois(h.lon, h.lat)
 	default:
 		http.Error(w, "unknown category", http.StatusBadRequest)
 		return

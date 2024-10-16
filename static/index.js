@@ -14,6 +14,7 @@ const addPoiHandlers = (body) => {
     const campingButton = document.getElementById('sites-fab-camping');
     const waterButton = document.getElementById('sites-fab-water');
     const cafeButton = document.getElementById('sites-fab-cafe');
+    const observationButton = document.getElementById('sites-fab-observation');
 
     const poiLoadingIndicator = document.createElement('div');
     poiLoadingIndicator.id = 'poi-loader';
@@ -26,6 +27,9 @@ const addPoiHandlers = (body) => {
 
     const cafeIcon = document.createElement('img');
     cafeIcon.src = '/static/images/coffee.svg';
+
+    const observationIcon = document.createElement('img');
+    cafeIcon.src = '/static/images/observation.svg';
 
     const sitesFabMainImage = document.getElementById('sites-fab-main-image');
 
@@ -48,6 +52,7 @@ const addPoiHandlers = (body) => {
 
                 waterButton.classList.remove('sites-fab-selected');
                 cafeButton.classList.remove('sites-fab-selected');
+                observationButton.classList.remove('sites-fab-selected');
 
                 sitesFabMainImage.src = '/static/images/campsite.svg';
                 sitesFabMainImage.style.visibility = 'visible';
@@ -67,6 +72,7 @@ const addPoiHandlers = (body) => {
 
                         waterButton.classList.remove('sites-fab-selected');
                         cafeButton.classList.remove('sites-fab-selected');
+                        observationButton.classList.remove('sites-fab-selected');
 
                         sitesFabMainImage.src = '/static/images/campsite.svg';
                         sitesFabMainImage.style.visibility = 'visible';
@@ -96,6 +102,7 @@ const addPoiHandlers = (body) => {
 
                 campingButton.classList.remove('sites-fab-selected');
                 cafeButton.classList.remove('sites-fab-selected');
+                observationButton.classList.remove('sites-fab-selected');
 
                 sitesFabMainImage.src = '/static/images/water.svg';
                 sitesFabMainImage.style.visibility = 'visible';
@@ -114,6 +121,7 @@ const addPoiHandlers = (body) => {
 
                         campingButton.classList.remove('sites-fab-selected');
                         cafeButton.classList.remove('sites-fab-selected');
+                        observationButton.classList.remove('sites-fab-selected');
 
                         sitesFabMainImage.src = '/static/images/water.svg';
                         sitesFabMainImage.style.visibility = 'visible';
@@ -140,8 +148,9 @@ const addPoiHandlers = (body) => {
 
                 cafeButton.classList.add('sites-fab-selected');
 
-                waterButton.classList.remove('sites-fab-selected');
                 campingButton.classList.remove('sites-fab-selected');
+                waterButton.classList.remove('sites-fab-selected');
+                observationButton.classList.remove('sites-fab-selected');
 
                 sitesFabMainImage.src = '/static/images/coffee.svg';
                 sitesFabMainImage.style.visibility = 'visible';
@@ -158,10 +167,59 @@ const addPoiHandlers = (body) => {
                     .then(() => {
                         cafeButton.classList.add('sites-fab-selected');
 
-                        waterButton.classList.remove('sites-fab-selected');
                         campingButton.classList.remove('sites-fab-selected');
+                        waterButton.classList.remove('sites-fab-selected');
+                        observationButton.classList.remove('sites-fab-selected');
 
                         sitesFabMainImage.src = '/static/images/coffee.svg';
+                        sitesFabMainImage.style.visibility = 'visible';
+                    })
+            }
+        }
+        sitesFabMain.click();
+    })
+
+    observationButton.addEventListener('click', () => {
+        if (!observationButton.className.includes('sites-fab-selected')) {
+            Array.from(document.getElementsByClassName('sites-container')).forEach(element => {
+                element.classList.add('hidden');
+            })
+            body.category = 'observation'
+
+            sitesFabMainImage.style.visibility = 'hidden';
+
+            // If poi category has been loaded before, just show it instead of
+            // loading it from the server
+            const observationPois = document.getElementById('observation-pois');
+            if (observationPois != null) {
+                observationPois.classList.toggle('hidden');
+
+                observationButton.classList.add('sites-fab-selected');
+
+                campingButton.classList.remove('sites-fab-selected');
+                waterButton.classList.remove('sites-fab-selected');
+                cafeButton.classList.remove('sites-fab-selected');
+
+                sitesFabMainImage.src = '/static/images/observation.svg';
+                sitesFabMainImage.style.visibility = 'visible';
+            } else {
+                htmx.ajax(
+                    'POST',
+                    '/data/sites',
+                    {
+                        target: '#compass',
+                        swap: 'afterbegin',
+                        values: body,
+                    }
+                )
+                    .then(() => {
+                        cafeButton.classList.add('sites-fab-selected');
+
+                        campingButton.classList.remove('sites-fab-selected');
+                        waterButton.classList.remove('sites-fab-selected');
+                        cafeButton.classList.remove('sites-fab-selected');
+
+                        sitesFabMainImage.src = '/static/images/observation.svg';
                         sitesFabMainImage.style.visibility = 'visible';
                     })
             }
