@@ -22,12 +22,13 @@
             <button hx-get="/about" hx-target="body" hx-swap="beforeend">About</button>
             <div id="sites-fab-container">
                 <div>
-                    <button id="sites-fab-main" class="sites-fab sites-fab-selected">
-                        <img src="/static/images/campsite.svg">
+                    <button id="sites-fab-main" class="sites-fab">
+                        <img class="sites-loader htmx-indicator" src="/static/images/tail-spin.svg">
+                        <img id="sites-fab-main-image" src="/static/images/search.svg">
                     </button>
                 </div>
                  <div>
-                    <button id="sites-fab-camping" class="sites-fab sites-fab-choices sites-fab-selected collapsed">
+                    <button id="sites-fab-camping" class="sites-fab sites-fab-choices collapsed">
                         <img src="/static/images/campsite.svg">
                     </button>
                 </div>

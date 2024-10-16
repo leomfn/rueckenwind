@@ -1,53 +1,34 @@
-package main
+package server
 
 import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"slices"
-	"strconv"
 	"strings"
+
+	"github.com/leomfn/rueckenwind/internal/middleware"
 )
-
-var (
-	port int64
-)
-
-// Load server environment variables
-func init() {
-	var err error
-
-	portEnv, exists := os.LookupEnv("PORT")
-	if !exists {
-		log.Fatal("PORT environment variable not set")
-	}
-
-	// TODO: maybe 32 bit is enough, probably irrelevant
-	port, err = strconv.ParseInt(portEnv, 10, 64)
-
-	if err != nil {
-		log.Fatal("PORT environment variable must be an integer")
-	}
-}
 
 type server struct {
 	address string
 	mux     *http.ServeMux
 }
 
-func newServer() *server {
+func NewServer(port int64) *server {
+	// TODO: maybe move port validation here
+
 	return &server{
 		address: fmt.Sprintf(":%d", port),
 		mux:     http.NewServeMux(),
 	}
 }
 
-func (s *server) addRouter(router *router) {
+func (s *server) AddRouter(router *router) {
 	s.mux.Handle(router.path, router.mux)
 }
 
-func (s *server) start() {
+func (s *server) Start() {
 	server := &http.Server{
 		Addr:    s.address,
 		Handler: s.mux,
@@ -63,7 +44,9 @@ type router struct {
 	mux  *http.ServeMux
 }
 
-func newRouter(path string) *router {
+// TODO: Maybe use as server method, which automatically binds a router to a
+// server
+func NewRouter(path string) *router {
 	return &router{
 		path: path,
 		mux:  http.NewServeMux(),
@@ -73,7 +56,7 @@ func newRouter(path string) *router {
 // Register a new handler, with optional middleware(s). The handler is wrapped
 // by the middlewares in reverse order they are provided. The allowed method
 // must be supplied, if all methods are allowed, then 'ALL' must be passed.
-func (r *router) handle(method string, path string, handler http.Handler, middlewares ...middlewareFunc) {
+func (r *router) Handle(method string, path string, handler http.Handler, middlewares ...middleware.Middleware) {
 	methodPath := strings.TrimSuffix(r.path, "/") + path
 
 	switch method {
@@ -87,7 +70,7 @@ func (r *router) handle(method string, path string, handler http.Handler, middle
 	}
 
 	for _, m := range slices.Backward(middlewares) {
-		handler = m(handler)
+		handler = m.MiddlewareFunc(handler)
 	}
 
 	r.mux.Handle(methodPath, handler)

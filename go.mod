@@ -1,3 +1,3 @@
-module github.com/leomfn/windeows
+module github.com/leomfn/rueckenwind
 
 go 1.23.1

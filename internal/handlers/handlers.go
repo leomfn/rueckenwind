@@ -1,16 +1,20 @@
-package main
+package handlers
 
 import (
+	"errors"
 	"html/template"
 	"log"
 	"net/http"
 	"strconv"
+
+	"github.com/leomfn/rueckenwind/internal/services"
+	"github.com/leomfn/rueckenwind/models"
 )
 
 // Index page
 type getIndexHandler struct{}
 
-func newGetIndexHandler() *getIndexHandler {
+func NewGetIndexHandler() *getIndexHandler {
 	return &getIndexHandler{}
 }
 
@@ -24,7 +28,7 @@ type staticFilesHandler struct {
 	directory http.Dir
 }
 
-func newStaticFilesHandler(directory string) *staticFilesHandler {
+func NewStaticFilesHandler(directory string) *staticFilesHandler {
 	return &staticFilesHandler{
 		directory: http.Dir(directory),
 	}
@@ -38,7 +42,7 @@ func (h *staticFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // About modal
 type aboutHandler struct{}
 
-func newAboutHandler() *aboutHandler {
+func NewAboutHandler() *aboutHandler {
 	return &aboutHandler{}
 }
 
@@ -53,7 +57,7 @@ func (h *aboutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Error modal
 type errorHandler struct{}
 
-func newErrorHandler() *errorHandler {
+func NewErrorHandler() *errorHandler {
 	return &errorHandler{}
 }
 
@@ -97,10 +101,14 @@ func (h *errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Weather
-type weatherHandler struct{}
+type weatherHandler struct {
+	service services.WeatherService
+}
 
-func newWeatherHandler() *weatherHandler {
-	return &weatherHandler{}
+func NewWeatherHandler(apiKey string) *weatherHandler {
+	return &weatherHandler{
+		service: services.NewOpenWeatherService(apiKey),
+	}
 }
 
 func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -125,11 +133,11 @@ func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lonCoord := coordinate(lon)
-	latCoord := coordinate(lat)
-	userLocation := location{Lon: &lonCoord, Lat: &latCoord}
+	lonCoord := models.Coordinate(lon)
+	latCoord := models.Coordinate(lat)
+	userLocation := models.Location{Lon: lonCoord, Lat: latCoord}
 
-	weatherData, err := getWeather(*userLocation.Lat, *userLocation.Lon)
+	weatherData, err := h.service.GetWeatherForecast(float64(userLocation.Lon), float64(userLocation.Lat))
 	if err != nil {
 		http.Error(w, "Could not fetch weather data", http.StatusInternalServerError)
 		return
@@ -139,41 +147,69 @@ func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, weatherData)
 }
 
-// POI sites
-type sitesHandler struct{}
-
-func newSitesHandler() *sitesHandler {
-	return &sitesHandler{}
+// General handler to facilitate location handling. It is not a http.Handler
+// itself, but can be embedded in other handlers that expect location data to be
+// sent via a form in a POST request.
+type locationHandler struct {
+	lon, lat float64
 }
 
-func (h *sitesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
+// Extracts the location coordinates from the request and stores them in the
+// handler. The error returned can be used as an error message to the client.
+func (h *locationHandler) extractLocation(r *http.Request) error {
+	// TODO: Add input validation
 	formLon := r.PostFormValue("lon")
 	formLat := r.PostFormValue("lat")
 
 	if formLon == "" || formLat == "" {
-		http.Error(w, "lon and lat must be provided", http.StatusBadRequest)
-		return
+		return errors.New("lon and lat must be provided")
 	}
 
-	lon, lonErr := strconv.ParseFloat(formLon, 64)
-	lat, latErr := strconv.ParseFloat(formLat, 64)
+	var lonErr, latErr error
+
+	h.lon, lonErr = strconv.ParseFloat(formLon, 64)
+	h.lat, latErr = strconv.ParseFloat(formLat, 64)
 
 	if lonErr != nil || latErr != nil {
-		http.Error(w, "lon and lat must be numbers", http.StatusBadRequest)
-		return
+		return errors.New("lon and lat must be numbers")
 	}
 
-	lonCoord := coordinate(lon)
-	latCoord := coordinate(lat)
-	userLocation := location{Lon: &lonCoord, Lat: &latCoord}
+	return nil
+}
 
-	overpassQuery := newOverpassQuery(userLocation)
-	err := overpassQuery.execute()
+// POI sites
+type poiHandler struct {
+	locationHandler
+	service services.PoiService
+}
+
+func NewPoiHandler(maxDistance int64) *poiHandler {
+	return &poiHandler{
+		service: services.NewOverpassPoiService(maxDistance),
+	}
+}
+
+func (h *poiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	err := h.extractLocation(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
+	poiCategory := r.PostFormValue("category")
+
+	var poiResults models.OverpassSites
+
+	switch poiCategory {
+	case "camping":
+		poiResults, err = h.service.GetCampingPois(h.lon, h.lat)
+	case "drinking-water":
+		poiResults, err = h.service.GetDrinkingWaterPois(h.lon, h.lat)
+	case "cafe":
+		poiResults, err = h.service.GetCafePois(h.lon, h.lat)
+	default:
+		http.Error(w, "unknown category", http.StatusBadRequest)
+		return
+	}
 
 	if err != nil {
 		log.Println("Cloud not fetch sites data:", err)
@@ -182,15 +218,13 @@ func (h *sitesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sitesData := struct {
-		CampSites          overpassSites
-		DrinkingWaterSites overpassSites
-		CafeSites          overpassSites
+		Pois     models.OverpassSites
+		Category string
 	}{
-		CampSites:          overpassQuery.campSites,
-		DrinkingWaterSites: overpassQuery.drinkingWaterSites,
-		CafeSites:          overpassQuery.cafeSites,
+		Pois:     poiResults,
+		Category: poiCategory,
 	}
 
-	tmpl := template.Must(template.ParseFiles("./templates/fragments/sites.html"))
+	tmpl := template.Must(template.ParseFiles("./templates/fragments/pois.html"))
 	tmpl.Execute(w, sitesData)
 }
