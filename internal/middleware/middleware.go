@@ -1,4 +1,4 @@
-package main
+package middleware
 
 import (
 	"bytes"
@@ -8,10 +8,18 @@ import (
 	"net/url"
 )
 
-type middlewareFunc func(http.Handler) http.Handler
+type Middleware interface {
+	MiddlewareFunc(http.Handler) http.Handler
+}
 
 // Logging
-func loggingMiddleware(next http.Handler) http.Handler {
+type loggingMiddleware struct{}
+
+func NewLoggingMiddleware() Middleware {
+	return &loggingMiddleware{}
+}
+
+func (m *loggingMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println(r.Method, r.URL.Path)
 		next.ServeHTTP(w, r)
@@ -27,10 +35,22 @@ func loggingMiddleware(next http.Handler) http.Handler {
 // header.
 //
 // TODO: this must be tested in live environment
-func sameSiteMiddleware(next http.Handler) http.Handler {
+type sameSiteMiddleware struct {
+	debug  bool
+	domain string
+}
+
+func NewSameSiteMiddleware(domain string, debug bool) Middleware {
+	return &sameSiteMiddleware{
+		debug:  debug,
+		domain: domain,
+	}
+}
+
+func (m *sameSiteMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		refDomain := domain
-		if debug {
+		refDomain := m.domain
+		if m.debug {
 			refDomain = "localhost"
 		}
 
@@ -49,6 +69,21 @@ func sameSiteMiddleware(next http.Handler) http.Handler {
 }
 
 // Tracking
+type trackingMiddleware struct {
+	domain      string
+	trackingURL string
+	debug       bool
+}
+
+func NewTrackingMiddleware(domain string, trackingURL string, debug bool) Middleware {
+	return &trackingMiddleware{
+		domain:      domain,
+		trackingURL: trackingURL,
+		debug:       debug,
+	}
+}
+
+// TODO: is this really necessary here?
 type trackingBody struct {
 	Name     string `json:"name"`
 	Url      string `json:"url"`
@@ -56,9 +91,9 @@ type trackingBody struct {
 	Referrer string `json:"referrer"`
 }
 
-func trackingMiddleware(next http.Handler) http.Handler {
+func (m *trackingMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if debug {
+		if m.debug {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -66,7 +101,7 @@ func trackingMiddleware(next http.Handler) http.Handler {
 		body := trackingBody{
 			Name:     "pageview",
 			Url:      r.URL.Path,
-			Domain:   domain,
+			Domain:   m.domain,
 			Referrer: r.Referer(),
 		}
 
@@ -78,7 +113,7 @@ func trackingMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		trackingRequest, err := http.NewRequest("POST", trackingURL, bytes.NewBuffer(bodyJSON))
+		trackingRequest, err := http.NewRequest("POST", m.trackingURL, bytes.NewBuffer(bodyJSON))
 
 		if err != nil {
 			log.Println("Failed to create POST request to tracking server:", err)

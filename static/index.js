@@ -1,129 +1,173 @@
-const renderCompassAndInfo = (position) => {
-    const body = {
-        lat: position.lat, 
-        lon: position.lon,
-    }
 
-    htmx.ajax(
-        'POST',
-        '/data/weather',
-        {
-            target: '#welcome-info',
-            swap: 'outerHTML',
-            values: body,
-        }
-    )
-        .then(() => {
-            addCompassRotation()
+const addPoiHandlers = (body) => {
+    document.getElementById('sites-fab-container').style.visibility = 'visible';
 
-            htmx.ajax(
-                'POST',
-                '/data/sites',
-                {
-                    target: '#sites-loader',
-                    swap: 'outerHTML',
-                    values: body,
-                }
-            )
-            .then(() => {
-                document.getElementById('sites-fab-container').style.visibility = 'visible';
+    const sitesFabMain = document.getElementById('sites-fab-main');
+    const sitesFabChoices = document.getElementsByClassName('sites-fab-choices');
 
-                const sitesFabMain = document.getElementById('sites-fab-main');
-                const sitesFabChoices = document.getElementsByClassName('sites-fab-choices');
+    sitesFabMain.addEventListener('click', () => {
+        Array.from(sitesFabChoices).forEach(element => {
+            element.classList.toggle('collapsed');
+        });
+    })
 
-                sitesFabMain.addEventListener('click', () => {
-                    if (sitesFabMain.className.includes('sites-fab-selected')) {
-                        Array.from(sitesFabChoices).forEach(element => {
-                            element.classList.remove('collapsed');
-                            element.style.pointerEvents = 'auto';
-                            sitesFabMain.classList.remove('sites-fab-selected');
-                        });
-                    } else {
-                        Array.from(sitesFabChoices).forEach(element => {
-                            element.classList.add('collapsed');
-                            element.style.pointerEvents = 'none';
-                            sitesFabMain.classList.add('sites-fab-selected');
-                        });
-                    }
-                })
+    const campingButton = document.getElementById('sites-fab-camping');
+    const waterButton = document.getElementById('sites-fab-water');
+    const cafeButton = document.getElementById('sites-fab-cafe');
 
-                const campingButton = document.getElementById('sites-fab-camping');
-                const waterButton = document.getElementById('sites-fab-water');
-                const cafeButton = document.getElementById('sites-fab-cafe');
-                const campingSites = document.getElementById('camping-sites');
-                const drinkingWaterSites = document.getElementById('drinking-water-sites');
-                const cafeSites = document.getElementById('cafe-sites');
-                
-                const campingIcon = document.createElement('img');
-                campingIcon.src = '/static/images/campsite.svg';
+    const poiLoadingIndicator = document.createElement('div');
+    poiLoadingIndicator.id = 'poi-loader';
 
-                const waterIcon = document.createElement('img');
-                waterIcon.src = '/static/images/water.svg';
+    const campingIcon = document.createElement('img');
+    campingIcon.src = '/static/images/campsite.svg';
 
-                const cafeIcon = document.createElement('img');
-                cafeIcon.src = '/static/images/coffee.svg';
+    const waterIcon = document.createElement('img');
+    waterIcon.src = '/static/images/water.svg';
 
-                campingButton.addEventListener('click', () => {
-                    if (!campingButton.className.includes('sites-fab-selected')) {
-                        campingSites.classList.add('visible');
-                        campingSites.classList.remove('hidden');
+    const cafeIcon = document.createElement('img');
+    cafeIcon.src = '/static/images/coffee.svg';
 
-                        drinkingWaterSites.classList.add('hidden');
-                        drinkingWaterSites.classList.remove('visible');
-                        waterButton.classList.remove('sites-fab-selected');
+    const sitesFabMainImage = document.getElementById('sites-fab-main-image');
 
-                        cafeSites.classList.add('hidden');
-                        cafeSites.classList.remove('visible');
-                        cafeButton.classList.remove('sites-fab-selected');
-
-                        campingButton.classList.add('sites-fab-selected');
-                        sitesFabMain.innerHTML = "";
-                        sitesFabMain.appendChild(campingIcon);
-                    }
-                    sitesFabMain.click();
-                })
-                waterButton.addEventListener('click', () => {
-                    if (!waterButton.className.includes('sites-fab-selected')) {
-                        drinkingWaterSites.style.visibility = 'visible';
-                        drinkingWaterSites.classList.add('visible');
-                        drinkingWaterSites.classList.remove('hidden');
-
-                        campingSites.classList.add('hidden');
-                        campingSites.classList.remove('visible');
-                        campingButton.classList.remove('sites-fab-selected');
-
-                        cafeSites.classList.add('hidden');
-                        cafeSites.classList.remove('visible');
-                        cafeButton.classList.remove('sites-fab-selected');
-
-                        waterButton.classList.add('sites-fab-selected');
-                        sitesFabMain.innerHTML = "";
-                        sitesFabMain.appendChild(waterIcon);
-                    }
-                    sitesFabMain.click();
-                })
-                cafeButton.addEventListener('click', () => {
-                    if (!cafeButton.className.includes('sites-fab-selected')) {
-                        cafeSites.style.visibility = 'visible';
-                        cafeSites.classList.add('visible');
-                        cafeSites.classList.remove('hidden');
-
-                        drinkingWaterSites.classList.add('hidden');
-                        drinkingWaterSites.classList.remove('visible');
-                        waterButton.classList.remove('sites-fab-selected');
-
-                        campingSites.classList.add('hidden');
-                        campingSites.classList.remove('visible');
-                        campingButton.classList.remove('sites-fab-selected');
-
-                        cafeButton.classList.add('sites-fab-selected');
-                        sitesFabMain.innerHTML = "";
-                        sitesFabMain.appendChild(cafeIcon);
-                    }
-                    sitesFabMain.click();
-                })
+    campingButton.addEventListener('click', () => {
+        if (!campingButton.className.includes('sites-fab-selected')) {
+            Array.from(document.getElementsByClassName('sites-container')).forEach(element => {
+                element.classList.add('hidden');
             })
-        })
+            body.category = 'camping'
+
+            sitesFabMainImage.style.visibility = 'hidden';
+
+            // If poi category has been loaded before, just show it instead of
+            // loading it from the server
+            const campingPois = document.getElementById('camping-pois');
+            if (campingPois != null) {
+                campingPois.classList.toggle('hidden');
+
+                campingButton.classList.add('sites-fab-selected');
+
+                waterButton.classList.remove('sites-fab-selected');
+                cafeButton.classList.remove('sites-fab-selected');
+
+                sitesFabMainImage.src = '/static/images/campsite.svg';
+                sitesFabMainImage.style.visibility = 'visible';
+            } else {
+                htmx.ajax(
+                    'POST',
+                    '/data/sites',
+                    {
+                        target: '#compass',
+                        swap: 'afterbegin',
+                        values: body,
+                        indicator: '#poi-loader',
+                    }
+                )
+                    .then(() => {
+                        campingButton.classList.add('sites-fab-selected');
+
+                        waterButton.classList.remove('sites-fab-selected');
+                        cafeButton.classList.remove('sites-fab-selected');
+
+                        sitesFabMainImage.src = '/static/images/campsite.svg';
+                        sitesFabMainImage.style.visibility = 'visible';
+                    })
+            }
+        }
+        sitesFabMain.click();
+    })
+
+    waterButton.addEventListener('click', () => {
+        if (!waterButton.className.includes('sites-fab-selected')) {
+            Array.from(document.getElementsByClassName('sites-container')).forEach(element => {
+                element.classList.add('hidden');
+            })
+            body.category = 'drinking-water'
+
+            sitesFabMainImage.style.visibility = 'hidden';
+
+            // If poi category has been loaded before, just show it instead of
+            // loading it from the server
+            const drinkingWaterPois = document.getElementById('drinking-water-pois');
+            if (drinkingWaterPois != null) {
+                drinkingWaterPois.classList.toggle('hidden');
+
+                // TODO: Find solution for code duplication
+                waterButton.classList.add('sites-fab-selected');
+
+                campingButton.classList.remove('sites-fab-selected');
+                cafeButton.classList.remove('sites-fab-selected');
+
+                sitesFabMainImage.src = '/static/images/water.svg';
+                sitesFabMainImage.style.visibility = 'visible';
+            } else {
+                htmx.ajax(
+                    'POST',
+                    '/data/sites',
+                    {
+                        target: '#compass',
+                        swap: 'afterbegin',
+                        values: body,
+                    }
+                )
+                    .then(() => {
+                        waterButton.classList.add('sites-fab-selected');
+
+                        campingButton.classList.remove('sites-fab-selected');
+                        cafeButton.classList.remove('sites-fab-selected');
+
+                        sitesFabMainImage.src = '/static/images/water.svg';
+                        sitesFabMainImage.style.visibility = 'visible';
+                    })
+            }
+        }
+        sitesFabMain.click();
+    })
+
+    cafeButton.addEventListener('click', () => {
+        if (!cafeButton.className.includes('sites-fab-selected')) {
+            Array.from(document.getElementsByClassName('sites-container')).forEach(element => {
+                element.classList.add('hidden');
+            })
+            body.category = 'cafe'
+
+            sitesFabMainImage.style.visibility = 'hidden';
+
+            // If poi category has been loaded before, just show it instead of
+            // loading it from the server
+            const cafePois = document.getElementById('cafe-pois');
+            if (cafePois != null) {
+                cafePois.classList.toggle('hidden');
+
+                cafeButton.classList.add('sites-fab-selected');
+
+                waterButton.classList.remove('sites-fab-selected');
+                campingButton.classList.remove('sites-fab-selected');
+
+                sitesFabMainImage.src = '/static/images/coffee.svg';
+                sitesFabMainImage.style.visibility = 'visible';
+            } else {
+                htmx.ajax(
+                    'POST',
+                    '/data/sites',
+                    {
+                        target: '#compass',
+                        swap: 'afterbegin',
+                        values: body,
+                    }
+                )
+                    .then(() => {
+                        cafeButton.classList.add('sites-fab-selected');
+
+                        waterButton.classList.remove('sites-fab-selected');
+                        campingButton.classList.remove('sites-fab-selected');
+
+                        sitesFabMainImage.src = '/static/images/coffee.svg';
+                        sitesFabMainImage.style.visibility = 'visible';
+                    })
+            }
+        }
+        sitesFabMain.click();
+    })
 }
 
 const addRegularOrientationEventListener = () => {
@@ -183,7 +227,7 @@ const getPosition = () => {
             lat: location.coords.latitude,
             lon: location.coords.longitude
         };
-        
+
         renderCompassAndInfo(position);
     }
 
@@ -205,6 +249,29 @@ const getPosition = () => {
             locationOptions
         );
     }
+}
+
+const renderCompassAndInfo = (position) => {
+    const body = {
+        lat: position.lat,
+        lon: position.lon,
+    }
+
+    htmx.ajax(
+        'POST',
+        '/data/weather',
+        {
+            target: '#welcome-info',
+            swap: 'outerHTML',
+            values: body,
+        }
+    )
+        .then(() => {
+            addCompassRotation()
+        })
+        .then(() => {
+            addPoiHandlers(body)
+        })
 }
 
 getPosition();

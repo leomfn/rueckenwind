@@ -7,13 +7,15 @@ import (
 	"strings"
 )
 
+// Default settings
 var (
-	staticFilesDir      string
-	maxOverpassDistance int64
+	port                int64  = 80
+	staticFilesDir      string = "./static"
+	maxOverpassDistance int64  = 25
 	owmApiKey           string
+	debug               bool = false
 	domain              string
-	trackingURL         string
-	debug               bool
+	trackingUrl         string
 )
 
 func init() {
@@ -22,15 +24,27 @@ func init() {
 		exists bool
 	)
 
-	// Load environment variables
-	staticFilesDir, exists = os.LookupEnv("STATIC_FILES_DIR")
+	portEnv, exists := os.LookupEnv("PORT")
 	if !exists {
-		log.Fatal("Environment variable STATIC_FILES_DIR not found")
+		log.Printf("PORT environment variable not set, using default value: %d", port)
+	} else {
+		port, err = strconv.ParseInt(portEnv, 10, 64)
+
+		if err != nil {
+			log.Fatal("PORT environment variable must be an integer")
+		}
+	}
+
+	staticfilesDirEnv, exists := os.LookupEnv("STATIC_FILES_DIR")
+	if !exists {
+		log.Printf("STATIC_FILES_DIR environment variable not set, using default value: %s", staticFilesDir)
+	} else {
+		staticFilesDir = staticfilesDirEnv
 	}
 
 	maxOverpassDistanceEnv, exists := os.LookupEnv("MAX_OVERPASS_DISTANCE")
 	if !exists {
-		maxOverpassDistance = 25
+		log.Printf("MAX_OVERPASS_DISTANCE environment variable not set, using default value: %d", maxOverpassDistance)
 	} else {
 		maxOverpassDistance, err = strconv.ParseInt(maxOverpassDistanceEnv, 10, 64)
 
@@ -51,7 +65,7 @@ func init() {
 		log.Fatal("Environment variable DOMAIN not found")
 	}
 
-	trackingURL, exists = os.LookupEnv("TRACKING_URL")
+	trackingUrl, exists = os.LookupEnv("TRACKING_URL")
 
 	if !exists {
 		log.Fatal("Environment variable TRACKING_URL not found")

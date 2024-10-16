@@ -1,4 +1,4 @@
-package main
+package models
 
 import (
 	"fmt"
@@ -7,19 +7,19 @@ import (
 	"time"
 )
 
-type coordinate float64
+type Coordinate float64
 
-func (c coordinate) toRadians() float64 {
-	return float64(c) / 180 * math.Pi
+func (c *Coordinate) toRadians() float64 {
+	return float64(*c) / 180 * math.Pi
 }
 
-type location struct {
-	Lon *coordinate `json:"lon"`
-	Lat *coordinate `json:"lat"`
+type Location struct {
+	Lon Coordinate `json:"lon"`
+	Lat Coordinate `json:"lat"`
 }
 
 // Haversine distance
-func (l1 location) distance(l2 location) float64 {
+func (l1 Location) distance(l2 Location) float64 {
 	earthRadius := 6371.0 // km
 
 	lat1 := l1.Lat.toRadians()
@@ -36,7 +36,7 @@ func (l1 location) distance(l2 location) float64 {
 
 // Bearing angle between two points, where l1 is the reference point and the
 // bearing expresses the angle between north and the line through l2
-func (l1 location) bearing(l2 location) float64 {
+func (l1 Location) bearing(l2 Location) float64 {
 	lat1 := l1.Lat.toRadians()
 	lon1 := l1.Lon.toRadians()
 	lat2 := l2.Lat.toRadians()
@@ -49,7 +49,7 @@ func (l1 location) bearing(l2 location) float64 {
 }
 
 type Weather struct {
-	Id          int    `json:"id"`
+	Id          int64  `json:"id"`
 	Main        string `json:"main"`
 	Description string `json:"description"`
 	Icon        string `json:"icon"`
@@ -60,20 +60,20 @@ type Main struct {
 	FeelsLike   float64 `json:"feels_like"`
 	TempMin     float64 `json:"temp_min"`
 	TempMax     float64 `json:"temp_max"`
-	Pressure    int     `json:"pressure"`
-	SeaLevel    int     `json:"sea_level"`
-	GroundLevel int     `json:"grnd_level"`
-	Humidity    int     `json:"humidity"`
+	Pressure    int64   `json:"pressure"`
+	SeaLevel    int64   `json:"sea_level"`
+	GroundLevel int64   `json:"grnd_level"`
+	Humidity    int64   `json:"humidity"`
 	TempKf      float64 `json:"temp_kf"`
 }
 
 type Wind struct {
 	Speed float64 `json:"speed"`
-	Deg   int     `json:"deg"`
+	Deg   int64   `json:"deg"`
 	Gust  float64 `json:"gust"`
 }
 
-func (w Wind) scale() float64 {
+func (w Wind) Scale() float64 {
 	maxSpeed := 80.0
 	speed := w.Speed * 3.6
 
@@ -91,7 +91,7 @@ type Rain struct {
 }
 
 // Returns rain intensity, as an integer from 0 (no rain) to 3 (heavy rain).
-func (r Rain) rainIntensity() int {
+func (r Rain) RainIntensity() int64 {
 	hourlyRain := r.ThreeHours / 3
 
 	switch {
@@ -106,9 +106,9 @@ func (r Rain) rainIntensity() int {
 	}
 }
 
-func (r Rain) rainText() string {
+func (r Rain) RainText() string {
 
-	switch r.rainIntensity() {
+	switch r.RainIntensity() {
 	case 0:
 		return "dry"
 	case 1:
@@ -123,7 +123,7 @@ func (r Rain) rainText() string {
 }
 
 type Clouds struct {
-	All int `json:"all"`
+	All int64 `json:"all"`
 }
 
 type Sys struct {
@@ -133,21 +133,21 @@ type Sys struct {
 type City struct {
 	Id         int64    `json:"id"`
 	Name       string   `json:"name"`
-	Coord      location `json:"coord"`
+	Coord      Location `json:"coord"`
 	Country    string   `json:"country"`
-	Population int      `json:"population"`
-	Timezone   int      `json:"timezone"`
-	Sunrise    int      `json:"sunrise"`
-	Sunset     int      `json:"sunset"`
+	Population int64    `json:"population"`
+	Timezone   int64    `json:"timezone"`
+	Sunrise    int64    `json:"sunrise"`
+	Sunset     int64    `json:"sunset"`
 }
 
 type ForecastEntry struct {
-	Timestamp     int       `json:"dt"`
+	Timestamp     int64     `json:"dt"`
 	Main          Main      `json:"main"`
 	Weather       []Weather `json:"weather"`
 	Clouds        Clouds    `json:"clouds"`
 	Wind          Wind      `json:"wind"`
-	Visibility    int       `json:"visibility"`
+	Visibility    int64     `json:"visibility"`
 	Pop           float64   `json:"pop"`
 	Rain          Rain      `json:"rain"`
 	Sys           Sys       `json:"sys"`
@@ -157,8 +157,8 @@ type ForecastEntry struct {
 type WeatherForecast struct {
 	List    []ForecastEntry `json:"list"`
 	COD     string          `json:"cod"`
-	Message int             `json:"message"`
-	Count   int             `json:"cnt"`
+	Message int64           `json:"message"`
+	Count   int64           `json:"cnt"`
 	City    City            `json:"city"`
 }
 
@@ -170,20 +170,20 @@ func (w WeatherForecast) SunsetLocalTime() string {
 
 type WeatherSummary struct {
 	// Temperature in Degree Celsius
-	CurrentTemperature int `json:"temp_current"`
-	FutureTemperature  int `json:"temp_future"`
+	CurrentTemperature int64 `json:"temp_current"`
+	FutureTemperature  int64 `json:"temp_future"`
 
 	// Wind speed in km/h
-	CurrentWindSpeed   int     `json:"wind_current"`
-	FutureWindSpeed    int     `json:"wind_future"`
-	CurrentWindDegrees int     `json:"wind_deg_current"`
-	FutureWindDegrees  int     `json:"wind_deg_future"`
-	CurrentWindGust    int     `json:"wind_gust_current"`
-	FutureWindGust     int     `json:"wind_gust_future"`
+	CurrentWindSpeed   int64   `json:"wind_current"`
+	FutureWindSpeed    int64   `json:"wind_future"`
+	CurrentWindDegrees int64   `json:"wind_deg_current"`
+	FutureWindDegrees  int64   `json:"wind_deg_future"`
+	CurrentWindGust    int64   `json:"wind_gust_current"`
+	FutureWindGust     int64   `json:"wind_gust_future"`
 	CurrentWindScale   float64 `json:"wind_scale_current"`
 	FutureWindScale    float64 `json:"wind_scale_future"`
-	CurrentRain        int     `json:"rain_current"`
-	FutureRain         int     `json:"rain_future"`
+	CurrentRain        int64   `json:"rain_current"`
+	FutureRain         int64   `json:"rain_future"`
 	CurrentRainText    string  `json:"rain_current_text"`
 	FutureRainText     string  `json:"rain_future_text"`
 
@@ -191,7 +191,33 @@ type WeatherSummary struct {
 	SunsetTime string `json:"sunset"`
 }
 
-type OverpassSite struct {
+type poi struct {
+	location Location
+	distance float64
+	bearing  float64
+}
+
+type campingSite struct {
+	poi
+	name         string
+	address      string
+	website      string
+	openingHours string
+}
+
+type drinkingWaterSite struct {
+	poi
+}
+
+type cafeSite struct {
+	poi
+	name         string
+	address      string
+	website      string
+	openingHours string
+}
+
+type overpassSite struct {
 	Bearing       float64
 	Distance      float64
 	DistanceText  string
@@ -200,15 +226,44 @@ type OverpassSite struct {
 	Website       string
 }
 
-type overpassSites []OverpassSite
+type Pois struct {
+	pois []poi
+}
 
-func (sites *overpassSites) sortByDistance() {
-	sort.Slice(*sites, func(i, j int) bool {
-		return (*sites)[i].Distance < (*sites)[j].Distance
+type campingSites struct {
+	poisInterface
+}
+
+type poisInterface interface {
+	sortByDistance()
+	filterByBearing()
+}
+
+func newCampingSites() poisInterface {
+	return nil
+}
+
+type OverpassSites []overpassSite
+
+func (p *OverpassSites) SortByDistance() {
+	sort.Slice(*p, func(i, j int) bool {
+		return (*p)[i].Distance < (*p)[j].Distance
 	})
 }
 
-func (sites *overpassSites) filterByBearing() {
+func (p *Pois) sortByDistance() {
+	sort.Slice(p.pois, func(i, j int) bool {
+		return p.pois[i].distance < p.pois[j].distance
+	})
+}
+
+// POIs are filtered by bearing angle, so that only one POI remains per bearing
+// 'bucket'. 360 degrees are split into 12 buckets of 30 degrees each.
+//
+// TODO: Find a better solution for overlapping POIs at bucket boundaries.
+// TODO: Maybe find a solution for close-to-nearest POIs not being shown because
+// bucket is already full.
+func (p *Pois) filterByBearing() {
 	angleFractions := map[int]bool{
 		0:  false,
 		1:  false,
@@ -224,20 +279,19 @@ func (sites *overpassSites) filterByBearing() {
 		11: false,
 	}
 
-	var filteredSites overpassSites
-
-	for _, site := range *sites {
-		angleFraction := int((site.Bearing + 180) / 30)
+	var filteredPois Pois
+	for _, poi := range p.pois {
+		angleFraction := int((poi.bearing + 180) / 30)
 		if !angleFractions[angleFraction] {
-			filteredSites = append(filteredSites, site)
+			filteredPois.pois = append(filteredPois.pois, poi)
 			angleFractions[angleFraction] = true
 		}
 	}
 
-	*sites = filteredSites
+	*p = filteredPois
 }
 
-func newSite(siteLocation location, referenceLocation location) OverpassSite {
+func NewSite(siteLocation Location, referenceLocation Location, maxDistance int64) overpassSite {
 	distance := referenceLocation.distance(siteLocation)
 	var distanceText string
 
@@ -249,9 +303,9 @@ func newSite(siteLocation location, referenceLocation location) OverpassSite {
 	}
 	maxPixel := 50.0
 	minPixel := 20.0
-	distancePixel := minPixel + (maxPixel-minPixel)*distance/float64(maxOverpassDistance)
+	distancePixel := minPixel + (maxPixel-minPixel)*distance/float64(maxDistance)
 
-	return OverpassSite{
+	return overpassSite{
 		Bearing:       referenceLocation.bearing(siteLocation),
 		Distance:      distance,
 		DistanceText:  distanceText,
@@ -259,20 +313,31 @@ func newSite(siteLocation location, referenceLocation location) OverpassSite {
 	}
 }
 
-type overpassResult struct {
-	Elements []struct {
-		OverpassType string  `json:"type"`
-		Lon          float64 `json:"lon"`
-		Lat          float64 `json:"lat"`
-		Bounds       struct {
-			MinLat float64 `json:"minlat"`
-			MinLon float64 `json:"minLon"`
-			MaxLat float64 `json:"maxLat"`
-			MaxLon float64 `json:"maxLon"`
-		} `json:"bounds"`
-		Tags struct {
-			Name    string `json:"name"`
-			Website string `json:"website"`
-		} `json:"tags"`
-	} `json:"elements"`
+func (sites *OverpassSites) FilterByBearing() {
+	angleFractions := map[int]bool{
+		0:  false,
+		1:  false,
+		2:  false,
+		3:  false,
+		4:  false,
+		5:  false,
+		6:  false,
+		7:  false,
+		8:  false,
+		9:  false,
+		10: false,
+		11: false,
+	}
+
+	var filteredSites OverpassSites
+
+	for _, site := range *sites {
+		angleFraction := int((site.Bearing + 180) / 30)
+		if !angleFractions[angleFraction] {
+			filteredSites = append(filteredSites, site)
+			angleFractions[angleFraction] = true
+		}
+	}
+
+	*sites = filteredSites
 }
