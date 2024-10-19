@@ -1,0 +1,200 @@
+<script lang="ts">
+    import { onMount } from "svelte";
+    import { pois, selectedPoi } from "../stores/store";
+
+    interface CompassDataWind {
+        wind_deg_current: number;
+        wind_scale_current: number;
+
+        wind_deg_future: number;
+        wind_scale_future: number;
+    }
+
+    export let compassDataWind: CompassDataWind
+
+    let orientationDegrees: number = 0;
+
+    onMount(() => {
+        // TODO: differentiate iOS and Android
+        // TODO: add modal for iOS to give permission
+        window.addEventListener('deviceorientation', event => {
+            if (event.alpha != null) {
+                orientationDegrees = event.alpha;
+            } else {
+                orientationDegrees = 0;
+            }
+        })
+    })
+</script>
+
+<div id="compass" class="flex-center" style="rotate: {orientationDegrees}deg;">
+    <div id="compass-circle">
+        <div class="direction" id="north">N</div>
+        <div class="direction" id="east">E</div>
+        <div class="direction" id="south">S</div>
+        <div class="direction" id="west">W</div>
+
+        <!-- TODO: fix scaling issues -->
+        {#if compassDataWind}
+        <div class="arrow future" id="futureWindArrow" style="rotate: {compassDataWind.wind_deg_future}deg; scale: {compassDataWind.wind_scale_future}">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 23V1 M10 20L12 23L14 20" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="arrow current" id="currentWindArrow" style="rotate: {compassDataWind.wind_deg_current}deg; scale: {compassDataWind.wind_scale_current}">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 23V1 M10 20L12 23L14 20" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        {/if}
+
+        {#if $selectedPoi in $pois}
+        <div id="{$selectedPoi}-pois" class="sites-container">
+            {#each $pois[$selectedPoi] as poi}
+                <div class="compass-site {$selectedPoi}-poi" style="rotate: {poi.Bearing}deg; height: calc(77px + {poi.Distance}px);">
+                    <div class="site-text">{poi.DistanceText}</div>
+                    <div class="site-indicator"></div>
+                </div>
+            {/each}
+        </div>
+        {/if}
+    </div> 
+</div>
+
+<style>
+    #compass {
+        height: 50%;
+        /* margin-top: 5vh; */
+        position: fixed;
+        top: 5%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #compass-circle {
+        width: 150px;
+        height: 150px;
+        border: 2px solid var(--tertiary);
+        border-radius: 50%;
+        background-color: var(--background);
+        box-sizing: border-box;
+        position: absolute;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .direction {
+        font-size: 1em;
+        height: 1.5em;
+        width: 1.5em;
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #north {
+        left: 50%;
+        top: 5%;
+        transform: translateX(-50%);
+    }
+
+    #east {
+        right: 5%;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    #south {
+        left: 50%;
+        bottom: 5%;
+        transform: translateX(-50%);
+    }
+
+    #west {
+        left: 5%;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    .arrow {
+        height: 80px;
+        width: 80px;
+        position: absolute;
+    }
+
+
+    .sites-container {
+        z-index: -10;
+    }
+
+    .sites-container.hidden {
+        scale: 0;
+        opacity: 0;
+        pointer-events: none;
+        animation: fadeOut 0.8s;
+    }
+
+    .sites-container:not(.hidden) {
+        scale: 1;
+        opacity: 1;
+        animation: fadeIn 0.8s;
+    }
+
+    @keyframes fadeIn {
+        0% {
+            scale: 0;
+            opacity: 0;
+        }
+
+        50% {
+            scale: 1.05;
+        }
+
+        100% {
+            scale: 1;
+            opacity: 1;
+        }
+    }
+
+    @keyframes fadeOut {
+        0% {
+            scale: 1;
+            opacity: 1;
+        }
+
+        100% {
+            scale: 0;
+            opacity: 0;
+        }
+    }
+
+    .compass-site {
+        position: absolute;
+        left: 50%;
+        bottom: 50%;
+        transform-origin: bottom center;
+        font-size: x-small;
+        color: var(--primary);
+        text-align: center;
+        z-index: -1;
+    }
+
+    .site-text {
+        position: fixed;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .site-indicator {
+        height: calc(100% - 0.8rem);
+        width: 0;
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        border-left: 1px dotted var(--primary);
+    }
+</style>

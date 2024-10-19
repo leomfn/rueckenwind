@@ -20,7 +20,7 @@ func main() {
 
 	dataRouter := server.NewRouter("/data/")
 	dataRouter.Handle("POST", "/weather", handlers.NewWeatherHandler(owmApiKey), sameSiteMiddleware, trackingMiddleware)
-	dataRouter.Handle("POST", "/sites", handlers.NewPoiHandler(maxOverpassDistance), sameSiteMiddleware, trackingMiddleware)
+	dataRouter.Handle("POST", "/poi", handlers.NewPoiHandler(maxOverpassDistance), sameSiteMiddleware, trackingMiddleware)
 
 	rueckenwindServer.AddRouter(rootRouter)
 	rueckenwindServer.AddRouter(dataRouter)

@@ -49,6 +49,11 @@ func NewSameSiteMiddleware(domain string, debug bool) Middleware {
 
 func (m *sameSiteMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if m.debug {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		refDomain := m.domain
 		if m.debug {
 			refDomain = "localhost"

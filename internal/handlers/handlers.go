@@ -1,11 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"html/template"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/leomfn/rueckenwind/internal/models"
 	"github.com/leomfn/rueckenwind/internal/services"
@@ -102,7 +102,13 @@ func (h *errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Weather
 type weatherHandler struct {
+	locationHandler
 	service services.WeatherService
+}
+
+type WeatherBody struct {
+	coordinates
+	Category string `json:"category"`
 }
 
 func NewWeatherHandler(apiKey string) *weatherHandler {
@@ -111,31 +117,19 @@ func NewWeatherHandler(apiKey string) *weatherHandler {
 	}
 }
 
+type coordinates struct {
+	Lon float64 `json:"lon"`
+	Lat float64 `json:"lat"`
+}
+
 func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	err := h.extractLocation(r)
+	if err != nil {
+		http.Error(w, "Could not read location", http.StatusBadRequest)
 		return
 	}
 
-	formLon := r.PostFormValue("lon")
-	formLat := r.PostFormValue("lat")
-
-	if formLon == "" || formLat == "" {
-		http.Error(w, "lon and lat must be provided", http.StatusBadRequest)
-		return
-	}
-
-	lon, lonErr := strconv.ParseFloat(formLon, 64)
-	lat, latErr := strconv.ParseFloat(formLat, 64)
-
-	if lonErr != nil || latErr != nil {
-		http.Error(w, "lon and lat must be numbers", http.StatusBadRequest)
-		return
-	}
-
-	lonCoord := models.Coordinate(lon)
-	latCoord := models.Coordinate(lat)
-	userLocation := models.Location{Lon: lonCoord, Lat: latCoord}
+	userLocation := models.Location{Lon: models.Coordinate(h.lon), Lat: models.Coordinate(h.lat)}
 
 	weatherData, err := h.service.GetWeatherForecast(float64(userLocation.Lon), float64(userLocation.Lat))
 	if err != nil {
@@ -143,8 +137,24 @@ func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl := template.Must(template.ParseFiles("./templates/fragments/weather.html"))
-	tmpl.Execute(w, weatherData)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(weatherData)
+}
+
+// General POST handler that reads application/json data
+type postHandler struct {
+	data interface{}
+}
+
+func (h *postHandler) readJSONPayload(w http.ResponseWriter, r *http.Request) error {
+	err := json.NewDecoder(r.Body).Decode(&h.data)
+
+	if err != nil {
+		http.Error(w, "invalid JSON payload", http.StatusBadRequest)
+		return nil
+	}
+
+	return err
 }
 
 // General handler to facilitate location handling. It is not a http.Handler
@@ -158,28 +168,46 @@ type locationHandler struct {
 // handler. The error returned can be used as an error message to the client.
 func (h *locationHandler) extractLocation(r *http.Request) error {
 	// TODO: Add input validation
-	formLon := r.PostFormValue("lon")
-	formLat := r.PostFormValue("lat")
+	var coordinatesBody coordinates
 
-	if formLon == "" || formLat == "" {
-		return errors.New("lon and lat must be provided")
+	err := json.NewDecoder(r.Body).Decode(&coordinatesBody)
+
+	if err != nil {
+		return errors.New("invalid request body")
 	}
 
-	var lonErr, latErr error
+	h.lon = coordinatesBody.Lon
+	h.lat = coordinatesBody.Lat
 
-	h.lon, lonErr = strconv.ParseFloat(formLon, 64)
-	h.lat, latErr = strconv.ParseFloat(formLat, 64)
+	// formLon := r.PostFormValue("lon")
+	// formLat := r.PostFormValue("lat")
 
-	if lonErr != nil || latErr != nil {
-		return errors.New("lon and lat must be numbers")
-	}
+	// if formLon == "" || formLat == "" {
+	// 	return errors.New("lon and lat must be provided")
+	// }
+
+	// var lonErr, latErr error
+
+	// h.lon, lonErr = strconv.ParseFloat(formLon, 64)
+	// h.lat, latErr = strconv.ParseFloat(formLat, 64)
+
+	// if lonErr != nil || latErr != nil {
+	// 	return errors.New("lon and lat must be numbers")
+	// }
 
 	return nil
 }
 
 // POI sites
+type poiData struct {
+	// coordinates
+	Lon      float64 `json:"lon"`
+	Lat      float64 `json:"lat"`
+	Category string  `json:"category"`
+}
+
 type poiHandler struct {
-	locationHandler
+	// postHandler
 	service services.PoiService
 }
 
@@ -190,24 +218,26 @@ func NewPoiHandler(maxDistance int64) *poiHandler {
 }
 
 func (h *poiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	err := h.extractLocation(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
+	var data poiData
 
-	poiCategory := r.PostFormValue("category")
+	err := json.NewDecoder(r.Body).Decode(&data)
+
+	if err != nil {
+		http.Error(w, "invalid JSON payload", http.StatusBadRequest)
+		return
+	}
 
 	var poiResults models.OverpassSites
 
-	switch poiCategory {
+	switch data.Category {
 	case "camping":
-		poiResults, err = h.service.GetCampingPois(h.lon, h.lat)
-	case "drinking-water":
-		poiResults, err = h.service.GetDrinkingWaterPois(h.lon, h.lat)
+		poiResults, err = h.service.GetCampingPois(data.Lon, data.Lat)
+	case "water":
+		poiResults, err = h.service.GetDrinkingWaterPois(data.Lon, data.Lat)
 	case "cafe":
-		poiResults, err = h.service.GetCafePois(h.lon, h.lat)
+		poiResults, err = h.service.GetCafePois(data.Lon, data.Lat)
 	case "observation":
-		poiResults, err = h.service.GetObservationPois(h.lon, h.lat)
+		poiResults, err = h.service.GetObservationPois(data.Lon, data.Lat)
 	default:
 		http.Error(w, "unknown category", http.StatusBadRequest)
 		return
@@ -219,14 +249,6 @@ func (h *poiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sitesData := struct {
-		Pois     models.OverpassSites
-		Category string
-	}{
-		Pois:     poiResults,
-		Category: poiCategory,
-	}
-
-	tmpl := template.Must(template.ParseFiles("./templates/fragments/pois.html"))
-	tmpl.Execute(w, sitesData)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(poiResults)
 }
