@@ -10,7 +10,7 @@ import (
 // Default settings
 var (
 	port                int64  = 80
-	staticFilesDir      string = "./static"
+	staticFilesDir      string = "./frontend/dist"
 	maxOverpassDistance int64  = 25
 	owmApiKey           string
 	debug               bool = false

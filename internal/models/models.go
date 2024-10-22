@@ -218,12 +218,12 @@ type cafeSite struct {
 }
 
 type overpassSite struct {
-	Bearing       float64
-	Distance      float64
-	DistanceText  string
-	DistancePixel float64
-	Name          string
-	Website       string
+	Bearing       float64 `json:"bearing"`
+	Distance      float64 `json:"distance"`
+	DistanceText  string  `json:"distance_text"`
+	DistancePixel float64 `json:"distance_pixel"`
+	Name          string  `json:"name"`
+	Website       string  `json:"website"`
 }
 
 type Pois struct {
