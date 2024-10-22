@@ -48,21 +48,30 @@
     };
 
     const getUserLocation = () => {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                userLocation.set({
-                    lat: position.coords.latitude,
-                    lon: position.coords.longitude
-                })
+        const locationSuccess = (position: GeolocationPosition) => {
+            userLocation.set({
+                lat: position.coords.latitude,
+                lon: position.coords.longitude
+            })
 
-                getData();
-            },
-            (error) => {
-                $infoTitle = "Permission required";
-                $infoText = "This site doesn't work without location permission.";
-                $showInfoModal = true;
-            }
-        )
+            getData();
+        }
+
+        const locationFailure = () => {
+            $infoTitle = "Permission required";
+            $infoText = "This site doesn't work without location permission.";
+            $showInfoModal = true;
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                locationSuccess,
+                locationFailure,
+                {
+                    enableHighAccuracy: true,
+                }
+            )
+        }
     }
 
     onMount(() => {
