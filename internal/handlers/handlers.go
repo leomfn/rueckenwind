@@ -41,51 +41,49 @@ func (h *staticFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.StripPrefix("/assets/", staticFileserver).ServeHTTP(w, r)
 }
 
-// // Error modal
-// type errorHandler struct{}
+// General handlers
 
-// func NewErrorHandler() *errorHandler {
-// 	return &errorHandler{}
+// General POST handler that reads application/json data
+// TODO: generalize handlers that read json
+// type postHandler struct {
+// 	data interface{}
 // }
 
-// func (h *errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-// 	query := r.URL.Query()
-// 	errorType := query.Get("type")
-// 	if errorType == "" {
-// 		http.Error(w, "Missing query parameter 'type'", http.StatusBadRequest)
-// 		return
+// func (h *postHandler) readJSONPayload(w http.ResponseWriter, r *http.Request) error {
+// 	err := json.NewDecoder(r.Body).Decode(&h.data)
+
+// 	if err != nil {
+// 		http.Error(w, "invalid JSON payload", http.StatusBadRequest)
+// 		return nil
 // 	}
 
-// 	var errorMessage, errorTitle string
-
-// 	switch errorType {
-// 	case "location":
-// 		errorMessage = "This site doesn't work without location permission."
-// 		errorTitle = "Error"
-// 	case "orientation":
-// 		errorMessage = "Active user input is necessary to access your iPhone's orientation sensors for the compass to work correctly. Touch the compass to confirm."
-// 		errorTitle = "iOS Information"
-// 	default:
-// 		http.Error(w, "Unknown error type", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	data := struct {
-// 		ErrorTitle   string
-// 		ErrorType    string
-// 		ErrorMessage string
-// 	}{
-// 		ErrorTitle:   errorTitle,
-// 		ErrorType:    errorType,
-// 		ErrorMessage: errorMessage,
-// 	}
-
-// 	// TODO: decide on setting cache control
-// 	// w.Header().Set("Cache-Control", "max-age=86400") // 1 day
-
-// 	tmpl := template.Must(template.ParseFiles("./templates/fragments/error-modal.html"))
-// 	tmpl.Execute(w, data)
+// 	return err
 // }
+
+// General handler to facilitate location handling. It is not a http.Handler
+// itself, but can be embedded in other handlers that expect location data to be
+// sent via a form in a POST request.
+type locationHandler struct {
+	lon, lat float64
+}
+
+// Extracts the location coordinates from the request and stores them in the
+// handler. The error returned can be used as an error message to the client.
+func (h *locationHandler) extractLocation(r *http.Request) error {
+	// TODO: Add input validation
+	var coordinatesBody coordinates
+
+	err := json.NewDecoder(r.Body).Decode(&coordinatesBody)
+
+	if err != nil {
+		return errors.New("invalid request body")
+	}
+
+	h.lon = coordinatesBody.Lon
+	h.lat = coordinatesBody.Lat
+
+	return nil
+}
 
 // Weather
 type weatherHandler struct {
@@ -128,73 +126,14 @@ func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(weatherData)
 }
 
-// General POST handler that reads application/json data
-type postHandler struct {
-	data interface{}
-}
-
-func (h *postHandler) readJSONPayload(w http.ResponseWriter, r *http.Request) error {
-	err := json.NewDecoder(r.Body).Decode(&h.data)
-
-	if err != nil {
-		http.Error(w, "invalid JSON payload", http.StatusBadRequest)
-		return nil
-	}
-
-	return err
-}
-
-// General handler to facilitate location handling. It is not a http.Handler
-// itself, but can be embedded in other handlers that expect location data to be
-// sent via a form in a POST request.
-type locationHandler struct {
-	lon, lat float64
-}
-
-// Extracts the location coordinates from the request and stores them in the
-// handler. The error returned can be used as an error message to the client.
-func (h *locationHandler) extractLocation(r *http.Request) error {
-	// TODO: Add input validation
-	var coordinatesBody coordinates
-
-	err := json.NewDecoder(r.Body).Decode(&coordinatesBody)
-
-	if err != nil {
-		return errors.New("invalid request body")
-	}
-
-	h.lon = coordinatesBody.Lon
-	h.lat = coordinatesBody.Lat
-
-	// formLon := r.PostFormValue("lon")
-	// formLat := r.PostFormValue("lat")
-
-	// if formLon == "" || formLat == "" {
-	// 	return errors.New("lon and lat must be provided")
-	// }
-
-	// var lonErr, latErr error
-
-	// h.lon, lonErr = strconv.ParseFloat(formLon, 64)
-	// h.lat, latErr = strconv.ParseFloat(formLat, 64)
-
-	// if lonErr != nil || latErr != nil {
-	// 	return errors.New("lon and lat must be numbers")
-	// }
-
-	return nil
-}
-
 // POI sites
 type poiData struct {
-	// coordinates
 	Lon      float64 `json:"lon"`
 	Lat      float64 `json:"lat"`
 	Category string  `json:"category"`
 }
 
 type poiHandler struct {
-	// postHandler
 	service services.PoiService
 }
 
