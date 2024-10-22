@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"html/template"
 	"log"
 	"net/http"
 
@@ -12,15 +11,18 @@ import (
 )
 
 // Index page
-type getIndexHandler struct{}
+type getIndexHandler struct {
+	directory string
+}
 
-func NewGetIndexHandler() *getIndexHandler {
-	return &getIndexHandler{}
+func NewGetIndexHandler(directory string) *getIndexHandler {
+	return &getIndexHandler{
+		directory: directory,
+	}
 }
 
 func (h getIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	tmpl := template.Must(template.ParseFiles("./templates/index.html"))
-	tmpl.Execute(w, nil)
+	http.ServeFile(w, r, h.directory)
 }
 
 // Serve static files
@@ -36,69 +38,54 @@ func NewStaticFilesHandler(directory string) *staticFilesHandler {
 
 func (h *staticFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	staticFileserver := http.FileServer(h.directory)
-	http.StripPrefix("/static/", staticFileserver).ServeHTTP(w, r)
+	http.StripPrefix("/assets/", staticFileserver).ServeHTTP(w, r)
 }
 
-// About modal
-type aboutHandler struct{}
+// // Error modal
+// type errorHandler struct{}
 
-func NewAboutHandler() *aboutHandler {
-	return &aboutHandler{}
-}
+// func NewErrorHandler() *errorHandler {
+// 	return &errorHandler{}
+// }
 
-func (h *aboutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// TODO: decide on setting cache control
-	// w.Header().Set("Cache-Control", "max-age=86400") // 1 day
+// func (h *errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// 	query := r.URL.Query()
+// 	errorType := query.Get("type")
+// 	if errorType == "" {
+// 		http.Error(w, "Missing query parameter 'type'", http.StatusBadRequest)
+// 		return
+// 	}
 
-	tmpl := template.Must(template.ParseFiles("./templates/fragments/info-modal.html"))
-	tmpl.Execute(w, nil)
-}
+// 	var errorMessage, errorTitle string
 
-// Error modal
-type errorHandler struct{}
+// 	switch errorType {
+// 	case "location":
+// 		errorMessage = "This site doesn't work without location permission."
+// 		errorTitle = "Error"
+// 	case "orientation":
+// 		errorMessage = "Active user input is necessary to access your iPhone's orientation sensors for the compass to work correctly. Touch the compass to confirm."
+// 		errorTitle = "iOS Information"
+// 	default:
+// 		http.Error(w, "Unknown error type", http.StatusBadRequest)
+// 		return
+// 	}
 
-func NewErrorHandler() *errorHandler {
-	return &errorHandler{}
-}
+// 	data := struct {
+// 		ErrorTitle   string
+// 		ErrorType    string
+// 		ErrorMessage string
+// 	}{
+// 		ErrorTitle:   errorTitle,
+// 		ErrorType:    errorType,
+// 		ErrorMessage: errorMessage,
+// 	}
 
-func (h *errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	errorType := query.Get("type")
-	if errorType == "" {
-		http.Error(w, "Missing query parameter 'type'", http.StatusBadRequest)
-		return
-	}
+// 	// TODO: decide on setting cache control
+// 	// w.Header().Set("Cache-Control", "max-age=86400") // 1 day
 
-	var errorMessage, errorTitle string
-
-	switch errorType {
-	case "location":
-		errorMessage = "This site doesn't work without location permission."
-		errorTitle = "Error"
-	case "orientation":
-		errorMessage = "Active user input is necessary to access your iPhone's orientation sensors for the compass to work correctly. Touch the compass to confirm."
-		errorTitle = "iOS Information"
-	default:
-		http.Error(w, "Unknown error type", http.StatusBadRequest)
-		return
-	}
-
-	data := struct {
-		ErrorTitle   string
-		ErrorType    string
-		ErrorMessage string
-	}{
-		ErrorTitle:   errorTitle,
-		ErrorType:    errorType,
-		ErrorMessage: errorMessage,
-	}
-
-	// TODO: decide on setting cache control
-	// w.Header().Set("Cache-Control", "max-age=86400") // 1 day
-
-	tmpl := template.Must(template.ParseFiles("./templates/fragments/error-modal.html"))
-	tmpl.Execute(w, data)
-}
+// 	tmpl := template.Must(template.ParseFiles("./templates/fragments/error-modal.html"))
+// 	tmpl.Execute(w, data)
+// }
 
 // Weather
 type weatherHandler struct {

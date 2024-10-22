@@ -1,10 +1,11 @@
 <script lang="ts">
     import { onMount } from "svelte";
+
     import ButtonBar from "./components/ButtonBar.svelte";
     import Compass from "./components/Compass.svelte";
     import WeatherInfo from "./components/WeatherInfo.svelte";
     import AboutModal from "./components/AboutModal.svelte";
-    // import InfoModal from "./components/InfoModal.svelte";
+    import InfoModal from "./components/InfoModal.svelte";
 
     import { showAboutModal, showInfoModal, infoTitle, infoText, userLocation } from "./stores/store";
 
@@ -46,7 +47,7 @@
             });
     };
 
-    const getUserLocation = async () => {
+    const getUserLocation = () => {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 userLocation.set({
@@ -55,7 +56,13 @@
                 })
 
                 getData();
-            })
+            },
+            (error) => {
+                $infoTitle = "Permission required";
+                $infoText = "This site doesn't work without location permission.";
+                $showInfoModal = true;
+            }
+        )
     }
 
     onMount(() => {
@@ -74,6 +81,6 @@
     <AboutModal></AboutModal>
 {/if}
 
-<!-- {#if $showInfoModal}
+{#if $showInfoModal}
     <InfoModal title={$infoTitle} text={$infoText}></InfoModal>
-{/if} -->
+{/if}

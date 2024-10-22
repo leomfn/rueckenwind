@@ -1,4 +1,17 @@
 <script lang="ts">
+    import temperatureUrl from '../../static/images/temperature.svg';
+    import windUrl from '../../static/images/wind.svg';
+    import gustUrl from '../../static/images/gust.svg';
+    import rainUrl from '../../static/images/rain.svg';
+    import sunsetUrl from '../../static/images/sunset.svg';
+
+    import campsiteUrl from '../../static/images/campsite.svg';
+    import waterUrl from '../../static/images/water.svg';
+    import coffeeUrl from '../../static/images/coffee.svg';
+    import observationUrl from '../../static/images/observation.svg';
+
+    import openWeatherUrl from '../../static/images/open_weather_logo.svg';
+
     import { showAboutModal } from "../stores/store";
     import Modal from "./Modal.svelte";
 
@@ -18,19 +31,19 @@
 
     <h3>Weather legend</h3>
     <ul id="symbol-legend">
-        <li class="legend-item"><img src="/static/images/thermometer.svg">temperature</li>
-        <li class="legend-item"><img src="/static/images/wind.svg">wind speed</li>
-        <li class="legend-item"><img src="/static/images/tornado.svg">gust speed</li>
-        <li class="legend-item"><img src="/static/images/cloud-rain-wind.svg">rain intensity</li>
-        <li class="legend-item"><img src="/static/images/sunset.svg">sunset time</li>
+        <li class="legend-item"><img src={temperatureUrl}>temperature</li>
+        <li class="legend-item"><img src={windUrl}>wind speed</li>
+        <li class="legend-item"><img src={gustUrl}>gust speed</li>
+        <li class="legend-item"><img src={rainUrl}>rain intensity</li>
+        <li class="legend-item"><img src={sunsetUrl}>sunset time</li>
     </ul>
 
     <h3>POI legend</h3>
     <ul id="symbol-legend">
-        <li class="legend-item"><img src="/static/images/campsite.svg">campsites</li>
-        <li class="legend-item"><img src="/static/images/water.svg">drinking water</li>
-        <li class="legend-item"><img src="/static/images/coffee.svg">cafes</li>
-        <li class="legend-item"><img src="/static/images/observation.svg">observation points</li>
+        <li class="legend-item"><img src={campsiteUrl}>campsites</li>
+        <li class="legend-item"><img src={waterUrl}>drinking water</li>
+        <li class="legend-item"><img src={coffeeUrl}>cafes</li>
+        <li class="legend-item"><img src={observationUrl}>observation points</li>
     </ul>
 
     <h2>Permissions</h2>
@@ -62,7 +75,7 @@
     </p>
     <div class="source-logos">
         <a href="https://openweathermap.org" rel="noreferrer noopener" target="_blank">
-            <img src="/static/images/open_weather_logo.svg" alt="OpenWeather logo" height="40px">
+            <img src={openWeatherUrl} alt="OpenWeather logo" height="40px">
         </a>
     </div>
 

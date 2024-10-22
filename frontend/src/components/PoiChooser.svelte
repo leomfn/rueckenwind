@@ -1,20 +1,26 @@
 <script lang="ts">
-    import { pois, selectedPoi, showPoiOptions, userLocation } from "../stores/store";
+    import campsiteUrl from '../../static/images/campsite.svg';
+    import waterUrl from '../../static/images/water.svg';
+    import coffeeUrl from '../../static/images/coffee.svg';
+    import observationUrl from '../../static/images/observation.svg';
 
-    // type category = "camping" | "water" | "cafe" | "observation";
+    import searchUrl from '../../static/images/search.svg';
+    import xUrl from '../../static/images/x.svg';
+
+    import { pois, poisLoading, previouslySelectedPoi, selectedPoi, showPoiOptions, userLocation } from "../stores/store";
 
     const poiSelectionChoices: Record<string, {img: string}> = {
         camping: {
-            img: 'campsite.svg'
+            img: campsiteUrl
         },
         water: {
-            img: 'water.svg'
+            img: waterUrl
         },
         cafe: {
-            img: 'coffee.svg'
+            img: coffeeUrl
         },
         observation: {
-            img: 'observation.svg'
+            img: observationUrl
         }
     }
 
@@ -23,11 +29,15 @@
     }
 
     const selectPoi = (poi: string) => {
+        $previouslySelectedPoi = $selectedPoi;
         $selectedPoi = poi;
         $showPoiOptions = false;
 
+        $poisLoading = true;
+
         // Check if pois have been fetched before
         if (poi in $pois) {
+            $poisLoading = false;
             return
         }
 
@@ -45,20 +55,23 @@
             .then((res) => res.json())
             .then((data) => {
                 pois.update(current => {
-                    return { ...current, [poi]: data}
+                    return {...current, [poi]: data}
                 })
-            });
+            })
+            .then(() => {
+                $poisLoading = false;
+            })
     }
 
     const chooserSymbol = (showPoiOptions: boolean): string => {
         if (showPoiOptions) {
-            return 'x.svg'
+            return xUrl
         } else if ($selectedPoi in poiSelectionChoices) {
             return poiSelectionChoices[$selectedPoi].img
         }
 
 
-        return 'search.svg';
+        return searchUrl;
     }
 
     let chooserImageSrc: string = chooserSymbol($showPoiOptions);
@@ -67,15 +80,15 @@
 
 <div id="sites-fab-container">
     <div>
-        <button id="sites-fab-main" class="sites-fab" on:click={togglePoiOptions}>
-            <img id="sites-fab-main-image" src="/static/images/{chooserImageSrc}">
+        <button id="sites-fab-main" class="sites-fab {$poisLoading ? 'sites-loading' : ''}" on:click={togglePoiOptions}>
+            <img id="sites-fab-main-image" src={chooserImageSrc}>
         </button>
     </div>
     {#if $showPoiOptions}
     {#each Object.entries(poiSelectionChoices) as [title, config]}
         <div>
             <button id="sites-fab-{title}" class="sites-fab sites-fab-choices {title === $selectedPoi ? 'sites-fab-selected' : ''}" on:click={() => selectPoi(title)}>
-                <img src="/static/images/{config.img}">
+                <img src={config.img}>
             </button>
         </div>
     {/each}
@@ -106,11 +119,6 @@
         opacity: 1;
         transition: opacity 0.1s ease;
     }
-
-    /* .sites-fab-choices.collapsed {
-        opacity: 0;
-        pointer-events: none;
-    } */
 
     .sites-fab-selected {
         background-color: var(--tertiary);

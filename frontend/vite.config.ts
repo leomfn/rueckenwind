@@ -8,7 +8,6 @@ export default defineConfig({
     port: 8081,
     proxy: {
       '/data': 'http://localhost:8080',
-      '/static': 'http://localhost:8080',
     },
   },
 })

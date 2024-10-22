@@ -1,7 +1,6 @@
 <script lang="ts">
     export let name: String;
     export let onClose;
-
 </script>
 
 <div id="{name}-modal" class="modal">

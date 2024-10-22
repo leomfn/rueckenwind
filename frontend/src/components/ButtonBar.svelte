@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { showAboutModal, showPoiOptions, userLocation } from "../stores/store";
+    import { showAboutModal, userLocation } from "../stores/store";
     import PoiChooser from "./PoiChooser.svelte";
 
     const openAboutModal = () => {

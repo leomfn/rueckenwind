@@ -1,1 +1,0 @@
-<button>Details</button>

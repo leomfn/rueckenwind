@@ -1,6 +1,8 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { pois, selectedPoi } from "../stores/store";
+    import { pois, poisLoading, selectedPoi } from "../stores/store";
+    import { scale } from "svelte/transition";
+    import { backOut } from "svelte/easing";
 
     interface CompassDataWind {
         wind_deg_current: number;
@@ -28,7 +30,7 @@
 </script>
 
 <div id="compass" class="flex-center" style="rotate: {orientationDegrees}deg;">
-    <div id="compass-circle">
+    <div id="compass-circle" class="{$poisLoading ? 'sites-loading' : ''}">
         <div class="direction" id="north">N</div>
         <div class="direction" id="east">E</div>
         <div class="direction" id="south">S</div>
@@ -48,23 +50,26 @@
         </div>
         {/if}
 
-        {#if $selectedPoi in $pois}
-        <div id="{$selectedPoi}-pois" class="sites-container">
-            {#each $pois[$selectedPoi] as poi}
-                <div class="compass-site {$selectedPoi}-poi" style="rotate: {poi.Bearing}deg; height: calc(77px + {poi.Distance}px);">
-                    <div class="site-text">{poi.DistanceText}</div>
+        <div
+            id="{$selectedPoi}-pois"
+            class="sites-container"
+            >
+            {#each $pois[$selectedPoi] as poi (poi)}
+                <div
+                    in:scale={{ duration: 500, easing: backOut }}
+                    out:scale={{ duration: 500 }}
+                    class="compass-site {$selectedPoi}-poi" style="rotate: {poi.bearing}deg; height: calc(75px + {poi.distance_pixel}px);">
+                    <div class="site-text">{poi.distance_text}</div>
                     <div class="site-indicator"></div>
                 </div>
             {/each}
         </div>
-        {/if}
     </div> 
 </div>
 
 <style>
     #compass {
         height: 50%;
-        /* margin-top: 5vh; */
         position: fixed;
         top: 5%;
         display: flex;
@@ -125,50 +130,8 @@
         position: absolute;
     }
 
-
     .sites-container {
         z-index: -10;
-    }
-
-    .sites-container.hidden {
-        scale: 0;
-        opacity: 0;
-        pointer-events: none;
-        animation: fadeOut 0.8s;
-    }
-
-    .sites-container:not(.hidden) {
-        scale: 1;
-        opacity: 1;
-        animation: fadeIn 0.8s;
-    }
-
-    @keyframes fadeIn {
-        0% {
-            scale: 0;
-            opacity: 0;
-        }
-
-        50% {
-            scale: 1.05;
-        }
-
-        100% {
-            scale: 1;
-            opacity: 1;
-        }
-    }
-
-    @keyframes fadeOut {
-        0% {
-            scale: 1;
-            opacity: 1;
-        }
-
-        100% {
-            scale: 0;
-            opacity: 0;
-        }
     }
 
     .compass-site {
