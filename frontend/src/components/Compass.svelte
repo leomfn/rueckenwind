@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { pois, poisLoading, selectedPoi } from "../stores/store";
+    import { pois, poiSelectionChoices, poisLoading, selectedPoi } from "../stores/store";
     import { scale } from "svelte/transition";
     import { backOut } from "svelte/easing";
 
@@ -54,13 +54,13 @@
             id="{$selectedPoi}-pois"
             class="sites-container"
             >
-            {#each $pois[$selectedPoi] as poi (poi)}
+            {#each $pois[$selectedPoi] as poi, index (poi)}
                 <div
                     in:scale={{ duration: 500, easing: backOut }}
                     out:scale={{ duration: 500 }}
                     class="compass-site {$selectedPoi}-poi" style="rotate: {poi.bearing}deg; height: calc(75px + {poi.distance_pixel}px);">
-                    <div class="site-text">{poi.distance_text}</div>
-                    <div class="site-indicator"></div>
+                    <div class="site-text {index === $poiSelectionChoices[$selectedPoi].detailsIndex ? 'details-selected' : ''}">{poi.distance_text}</div>
+                    <div class="site-indicator {index === $poiSelectionChoices[$selectedPoi].detailsIndex ? 'details-selected' : ''}"></div>
                 </div>
             {/each}
         </div>
@@ -143,14 +143,27 @@
     }
 
     .compass-site {
+        color: var(--tertiary);
+        /* border-left-color: tomato; */
         position: absolute;
         left: 50%;
         bottom: 50%;
         transform-origin: bottom center;
         font-size: x-small;
         color: var(--font-color);
-        text-align: center;
         z-index: -1;
+    }
+
+    .site-text.details-selected {
+        top: -0.5rem;
+        color: var(--tertiary-warning);
+        font-size: medium;
+        z-index: 1000;
+    }
+
+    .site-indicator.details-selected {
+        border-left-width: 2px;
+        border-left-color: var(--tertiary-warning);
     }
 
     .site-text {
@@ -166,6 +179,9 @@
         position: fixed;
         bottom: 0;
         left: 50%;
-        border-left: 1px dotted black;
+        border-left-width: 1px;
+        border-left-style: solid;
+        /* border-left-color: var(--tertiary); */
+        opacity: 0.3;
     }
 </style>

@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strings"
 
 	"github.com/leomfn/rueckenwind/internal/models"
 )
@@ -80,22 +81,54 @@ func (s *openWeatherService) GetWeatherForecast(lon float64, lat float64) (model
 }
 
 // Overpass
+type overpassElement struct {
+	OverpassType string  `json:"type"`
+	Lon          float64 `json:"lon"`
+	Lat          float64 `json:"lat"`
+	Bounds       struct {
+		MinLat float64 `json:"minlat"`
+		MinLon float64 `json:"minLon"`
+		MaxLat float64 `json:"maxLat"`
+		MaxLon float64 `json:"maxLon"`
+	} `json:"bounds"`
+	Tags struct {
+		Name        string `json:"name"`
+		Website     string `json:"website"`
+		Street      string `json:"addr:street"`
+		Housenumber string `json:"addr:housenumber"`
+		Postcode    string `json:"addr:postcode"`
+		City        string `json:"addr:city"`
+	} `json:"tags"`
+}
+
+func (e *overpassElement) GetAddress() string {
+	if e.Tags.City == "" {
+		return ""
+	}
+
+	var addressParts []string
+
+	if e.Tags.Street != "" {
+		street := e.Tags.Street
+		if e.Tags.Housenumber != "" {
+			street = strings.Join([]string{street, e.Tags.Housenumber}, " ")
+		}
+
+		street += ","
+		addressParts = append(addressParts, street)
+	}
+
+	if e.Tags.Postcode != "" {
+		addressParts = append(addressParts, e.Tags.Postcode)
+	}
+
+	addressParts = append(addressParts, e.Tags.City)
+
+	return strings.Join(addressParts, " ")
+}
+
 type overpassResult struct {
-	Elements []struct {
-		OverpassType string  `json:"type"`
-		Lon          float64 `json:"lon"`
-		Lat          float64 `json:"lat"`
-		Bounds       struct {
-			MinLat float64 `json:"minlat"`
-			MinLon float64 `json:"minLon"`
-			MaxLat float64 `json:"maxLat"`
-			MaxLon float64 `json:"maxLon"`
-		} `json:"bounds"`
-		Tags struct {
-			Name    string `json:"name"`
-			Website string `json:"website"`
-		} `json:"tags"`
-	} `json:"elements"`
+	Elements []overpassElement `json:"elements"`
 }
 
 type PoiService interface {
@@ -137,7 +170,7 @@ func (s *overpassPoiService) query(query string) (*overpassResult, error) {
 }
 
 func (s *overpassPoiService) convertOverpassResults(pois *overpassResult, lon float64, lat float64) models.OverpassSites {
-	campsites := models.OverpassSites{}
+	sites := models.OverpassSites{}
 
 	for _, element := range pois.Elements {
 		var siteLon, siteLat models.Coordinate
@@ -150,14 +183,17 @@ func (s *overpassPoiService) convertOverpassResults(pois *overpassResult, lon fl
 			siteLat = models.Coordinate((element.Bounds.MinLat + element.Bounds.MaxLat) / 2)
 		}
 
-		campsite := models.NewSite(models.Location{Lon: siteLon, Lat: siteLat}, models.Location{Lon: models.Coordinate(lon), Lat: models.Coordinate(lat)}, s.maxDistance)
-		campsite.Name = element.Tags.Name
-		campsite.Website = element.Tags.Website
+		site := models.NewSite(models.Location{Lon: siteLon, Lat: siteLat}, models.Location{Lon: models.Coordinate(lon), Lat: models.Coordinate(lat)}, s.maxDistance)
 
-		campsites = append(campsites, campsite)
+		// TODO: add properties to filtered POIs instead of all overpass results
+		site.Name = element.Tags.Name
+		site.Website = element.Tags.Website
+		site.Address = element.GetAddress()
+
+		sites = append(sites, site)
 	}
 
-	return campsites
+	return sites
 }
 
 func (s *overpassPoiService) GetCampingPois(lon float64, lat float64) (models.OverpassSites, error) {

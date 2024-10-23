@@ -7,7 +7,8 @@
     import AboutModal from "./components/AboutModal.svelte";
     import InfoModal from "./components/InfoModal.svelte";
 
-    import { showAboutModal, showInfoModal, infoTitle, infoText, userLocation } from "./stores/store";
+    import { showAboutModal, showInfoModal, infoTitle, infoText, userLocation, showPoiDetails, poisLoading } from "./stores/store";
+    import PoiDetails from "./components/PoiDetails.svelte";
 
     // load weather data
     interface WeatherData {
@@ -82,7 +83,11 @@
 
 <div id="main-container" class="main-container">
     <Compass compassDataWind={weatherData}/>
+    {#if $showPoiDetails && !$poisLoading}
+    <PoiDetails></PoiDetails>
+    {:else}
     <WeatherInfo weatherData={weatherData} />
+    {/if}
     <ButtonBar />
 </div>
 

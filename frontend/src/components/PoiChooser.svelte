@@ -1,28 +1,8 @@
 <script lang="ts">
-    import campsiteUrl from '../../static/images/campsite.svg';
-    import waterUrl from '../../static/images/water.svg';
-    import coffeeUrl from '../../static/images/coffee.svg';
-    import observationUrl from '../../static/images/observation.svg';
-
     import searchUrl from '../../static/images/search.svg';
     import xUrl from '../../static/images/x.svg';
 
-    import { pois, poisLoading, previouslySelectedPoi, selectedPoi, showPoiOptions, userLocation } from "../stores/store";
-
-    const poiSelectionChoices: Record<string, {img: string}> = {
-        camping: {
-            img: campsiteUrl
-        },
-        water: {
-            img: waterUrl
-        },
-        cafe: {
-            img: coffeeUrl
-        },
-        observation: {
-            img: observationUrl
-        }
-    }
+    import { pois, poiSelectionChoices, poisLoading, previouslySelectedPoi, selectedPoi, showPoiOptions, userLocation } from "../stores/store";
 
     const togglePoiOptions = () => {
         showPoiOptions.update(value => !value);
@@ -66,8 +46,8 @@
     const chooserSymbol = (showPoiOptions: boolean): string => {
         if (showPoiOptions) {
             return xUrl
-        } else if ($selectedPoi in poiSelectionChoices) {
-            return poiSelectionChoices[$selectedPoi].img
+        } else if ($selectedPoi in $poiSelectionChoices) {
+            return $poiSelectionChoices[$selectedPoi].img
         }
 
 
@@ -85,7 +65,7 @@
         </button>
     </div>
     {#if $showPoiOptions}
-    {#each Object.entries(poiSelectionChoices) as [title, config]}
+    {#each Object.entries($poiSelectionChoices) as [title, config]}
         <div>
             <button id="sites-fab-{title}" class="sites-fab sites-fab-choices {title === $selectedPoi ? 'sites-fab-selected' : ''}" on:click={() => selectPoi(title)}>
                 <img src={config.img}>
@@ -97,6 +77,8 @@
 
 <style>
     #sites-fab-container {
+        position: absolute;
+        transform: translateX(calc(34px + 20px + 0.5rem));
         display: flex;
         flex-direction: column-reverse;
         align-items: start;
