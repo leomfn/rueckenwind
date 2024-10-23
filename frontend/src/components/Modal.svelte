@@ -43,10 +43,10 @@
         max-height: 75%;
         margin-top: 10vh;
         overflow-y: scroll;
-        border: solid 1px var(--primary);
+        background-color: var(--secondary-background);
+        border: solid 1px black;
         border-radius: 5px;
         box-shadow: 0px 0px 20px 0px rgba(0, 0, 0, 0.3);
-        background-color: white;
         padding: 0 20px 0px 20px;
         user-select: text;
         -webkit-user-select: text;
@@ -59,7 +59,7 @@
         padding-bottom: 0.5rem;
         position: sticky;
         top: 0;
-        background-color: white;
+        background-color: var(--secondary-background);
     }
 
     .modal-close-container {

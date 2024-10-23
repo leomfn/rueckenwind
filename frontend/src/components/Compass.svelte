@@ -30,7 +30,7 @@
 </script>
 
 <div id="compass" class="flex-center" style="rotate: {orientationDegrees}deg;">
-    <div id="compass-circle" class="{$poisLoading ? 'sites-loading' : ''}">
+    <div class="compass-circle {$poisLoading ? 'sites-loading' : ''}">
         <div class="direction" id="north">N</div>
         <div class="direction" id="east">E</div>
         <div class="direction" id="south">S</div>
@@ -77,10 +77,12 @@
         align-items: center;
     }
 
-    #compass-circle {
+    .compass-circle {
         width: 150px;
         height: 150px;
-        border: 2px solid var(--tertiary);
+        border-width: 2px;
+        border-style: solid;
+        border-color: var(--tertiary);
         border-radius: 50%;
         background-color: var(--background);
         box-sizing: border-box;
@@ -88,6 +90,12 @@
         display: flex;
         justify-content: center;
         align-items: center;
+    }
+
+    /* TODO: Currently, there is no way to detect magnetometer calibration. Maybe
+     * find an alternative. */
+    .not-calibrated {
+        border-color: var(--tertiary-warning);
     }
 
     .direction {
@@ -140,7 +148,7 @@
         bottom: 50%;
         transform-origin: bottom center;
         font-size: x-small;
-        color: var(--primary);
+        color: var(--font-color);
         text-align: center;
         z-index: -1;
     }
@@ -158,6 +166,6 @@
         position: fixed;
         bottom: 0;
         left: 50%;
-        border-left: 1px dotted var(--primary);
+        border-left: 1px dotted black;
     }
 </style>

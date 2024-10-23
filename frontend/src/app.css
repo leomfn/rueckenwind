@@ -17,12 +17,17 @@
 :root {
   font-family: 'Open Sans', sans-serif;
 
-  --primary: #38261F;
-  --secondary: #F1A484;
-  --background: #E5FCF5;
-  --tertiary: #B3DEC1;
+  --font-color: #02373Fff;
+  /* --background: #B0DFCCff; */
+  --background: rgb(238, 254, 247);
+  --tertiary: #19B0A4ff;
+  --current: #017775ff;
+  /* --secondary-background: #F7D5B0ff; */
+  --secondary-background: rgb(255, 250, 245);
+  --tertiary-warning: #E15C23ff;
+  --future: #A23310ff;
 
-  color: var(--primary);
+  color: var(--font-color);
   background-color: var(--background);
 }
 
@@ -53,13 +58,13 @@ em {
 }
 
 .current {
-  color: var(--primary);
-  stroke: var(--primary);
+  color: var(--current);
+  stroke: var(--current);
 }
 
 .future {
-  color: var(--secondary);
-  stroke: var(--secondary);
+  color: var(--future);
+  stroke: var(--future);
 }
 
 button {
@@ -72,23 +77,21 @@ button {
   border-radius: 8px;
   padding: 10px 12px;
   background-color: var(--background);
-  color: var(--primary);
+  color: var(--font-color);
   cursor: pointer;
 }
 
 button:active {
-    background-color: var(--secondary);
-    border-color: var(--secondary);
+    background-color: var(--tertiary);
+    border-color: var(--tertiary);
 }
 
 .close-button {
-  background-color: var(--secondary);
-  border-color: var(--primary);
+  border-color: black;
 }
 
 .close-button:active {
-  background-color: var(--background);
-  border-color: var(--primary);
+  border-color: black;
 }
 
 .sites-loading {
