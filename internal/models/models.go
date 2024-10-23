@@ -224,6 +224,9 @@ type overpassSite struct {
 	DistancePixel float64 `json:"distance_pixel"`
 	Name          string  `json:"name"`
 	Website       string  `json:"website"`
+	Lon           float64 `json:"lon"`
+	Lat           float64 `json:"lat"`
+	Address       string  `json:"address"`
 }
 
 type Pois struct {
@@ -310,6 +313,8 @@ func NewSite(siteLocation Location, referenceLocation Location, maxDistance int6
 		Distance:      distance,
 		DistanceText:  distanceText,
 		DistancePixel: distancePixel,
+		Lon:           float64(siteLocation.Lon),
+		Lat:           float64(siteLocation.Lat),
 	}
 }
 

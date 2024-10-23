@@ -61,6 +61,10 @@
         However, no further data from your device is sent to those services.
     </p>
     <p>
+        By using the Directions button (found in POI details), you will be directed to brouter-web, an online service for routing based on OSM. Your location will be shared with this service, indirectly via URL query parameters.
+        The Website button (also in POI details) leads to an external website connected to the POI via its underlying OSM data.
+    </p>
+    <p>
         To track usage statistics, this site uses a self-hosted <a href="https://github.com/plausible/community-edition" rel="noreferrer noopener" target="_blank">Plausible</a> instance.
         This way, information about your browser type and version is stored, along with your anonymized IP address and the date and time you accessed this site.
     </p>
@@ -95,6 +99,9 @@
         Please note that the information provided on this website is for general informational purposes only and may not be fully accurate or up-to-date.
         You are responsible for how you interpret and use this information.
         Always verify details independently.
+    </p>
+    <p>
+        This site contains links to external websites. Use of these links is at your own risk.
     </p>
 
 </Modal>
