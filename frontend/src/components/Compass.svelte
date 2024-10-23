@@ -19,7 +19,7 @@
     onMount(() => {
         // TODO: differentiate iOS and Android
         // TODO: add modal for iOS to give permission
-        window.addEventListener('deviceorientation', event => {
+        window.addEventListener('deviceorientationabsolute', event => {
             if (event.alpha != null) {
                 orientationDegrees = event.alpha;
             } else {
