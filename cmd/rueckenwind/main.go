@@ -17,6 +17,7 @@ func main() {
 	rootRouter := server.NewRouter("/")
 	rootRouter.Handle("GET", "/{$}", handlers.NewGetIndexHandler(fmt.Sprintf("%s/index.html", staticFilesDir)), trackingMiddleware)
 	rootRouter.Handle("GET", "/assets/", handlers.NewStaticFilesHandler(fmt.Sprintf("%s/assets", staticFilesDir)), sameSiteMiddleware)
+	rootRouter.Handle("GET", "/health", handlers.NewHealthcheckHandler())
 
 	dataRouter := server.NewRouter("/data/")
 	dataRouter.Handle("POST", "/weather", handlers.NewWeatherHandler(owmApiKey), sameSiteMiddleware, trackingMiddleware)
