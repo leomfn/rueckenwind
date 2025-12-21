@@ -1,4 +1,4 @@
-FROM node:20.18-alpine3.20@sha256:d504f23acdda979406cf3bdbff0dff7933e5c4ec183dda404ed24286c6125e60 AS npm-builder
+FROM node:25-alpine@sha256:405485d01af4f7087dcf0029fcc3444a260585f6900cff1024f555d0d64bf756 AS npm-builder
 
 WORKDIR /build-dir
 
@@ -7,7 +7,7 @@ COPY frontend .
 RUN npm install
 RUN npm run build
 
-FROM golang:1.23.2-alpine3.20@sha256:d21e934609de95ab75ba852128106ccf95ee7531e8b832b5f3b4e833d47a1ba2 AS go-builder
+FROM golang:1.25.5-alpine3.20@sha256:f8f784f478e37b032640fcd0fa31b1f1bd0d79dd36a746161b62c52e8763d290 AS go-builder
 
 RUN apk add build-base
 

@@ -65,11 +65,8 @@ func init() {
 		log.Fatal("Environment variable DOMAIN not found")
 	}
 
-	trackingUrl, exists = os.LookupEnv("TRACKING_URL")
-
-	if !exists {
-		log.Fatal("Environment variable TRACKING_URL not found")
-	}
+	// Disable tracking if variable is not set
+	trackingUrl = os.Getenv("TRACKING_URL")
 
 	debugEnv := strings.ToLower(os.Getenv("DEBUG"))
 	if debugEnv == "true" {
