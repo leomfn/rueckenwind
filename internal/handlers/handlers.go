@@ -10,6 +10,27 @@ import (
 	"github.com/leomfn/rueckenwind/internal/services"
 )
 
+// Healthcheck handler
+type healthcheckHandler struct{}
+
+func NewHealthcheckHandler() *healthcheckHandler {
+	return &healthcheckHandler{}
+}
+
+type healthcheckResponse struct {
+	Status string `json:"status"`
+}
+
+func (h *healthcheckHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	response := healthcheckResponse{
+		Status: "ok",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
 // Index page
 type getIndexHandler struct {
 	directory string
