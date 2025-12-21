@@ -7,5 +7,5 @@
 - `OPEN_WEATHER_MAP_API_KEY`
 - `DEBUG`: Set to `true` if the program should run in debug mode. This deactivates the tracking middleware.
 - `MAX_OVERPASS_DISTANCE`: Maximium distance (in kilometers) to search for POIs. Defaults value: 25.
-- `TRACKING_URL`: URL of the Plausible instance's /event endpoint.
+- `TRACKING_URL`: URL of the Plausible instance's /event endpoint. If not set, deactivate tracking.
 - `DOMAIN`: Domain name of the application used for tracking.

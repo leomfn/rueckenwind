@@ -98,7 +98,7 @@ type trackingBody struct {
 
 func (m *trackingMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if m.debug {
+		if m.debug || m.trackingURL == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
