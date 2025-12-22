@@ -11,7 +11,7 @@ import (
 func main() {
 	rueckenwindServer := server.NewServer(port)
 
-	trackingMiddleware := middleware.NewTrackingMiddleware(domain, trackingUrl, debug)
+	trackingMiddleware := middleware.NewTrackingMiddleware(domain, trackingUrl, trackingId, debug)
 	sameSiteMiddleware := middleware.NewSameSiteMiddleware(domain, debug)
 
 	rootRouter := server.NewRouter("/")
