@@ -131,6 +131,9 @@ func newTrackingBody(r *http.Request, websiteID, hostname string) umamiRequest {
 
 func (m *trackingMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("remote add: ", r.RemoteAddr)
+		log.Println("x-forwarded-for: ", r.Header.Get("X-Forwarded-For"))
+
 		if m.debug || m.trackingURL == "" {
 			next.ServeHTTP(w, r)
 			return
