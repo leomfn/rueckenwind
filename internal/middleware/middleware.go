@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 )
 
 type Middleware interface {
@@ -77,23 +79,54 @@ func (m *sameSiteMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 type trackingMiddleware struct {
 	domain      string
 	trackingURL string
+	websiteId   string
 	debug       bool
 }
 
-func NewTrackingMiddleware(domain string, trackingURL string, debug bool) Middleware {
+func NewTrackingMiddleware(domain string, trackingURL string, websiteId string, debug bool) Middleware {
 	return &trackingMiddleware{
 		domain:      domain,
 		trackingURL: trackingURL,
+		websiteId:   websiteId,
 		debug:       debug,
 	}
 }
 
-// TODO: is this really necessary here?
-type trackingBody struct {
-	Name     string `json:"name"`
-	Url      string `json:"url"`
-	Domain   string `json:"domain"`
-	Referrer string `json:"referrer"`
+type umamiRequest struct {
+	Type    string       `json:"type"`
+	Payload umamiPayload `json:"payload"`
+}
+
+type umamiPayload struct {
+	Website  string `json:"website"`
+	Hostname string `json:"hostname"`
+	URL      string `json:"url"`
+	Title    string `json:"title,omitempty"`
+	Referrer string `json:"referrer,omitempty"`
+	Language string `json:"language,omitempty"`
+	Screen   string `json:"screen,omitempty"`
+}
+
+func newTrackingBody(r *http.Request, websiteID, hostname string) umamiRequest {
+	language := ""
+	if acceptLang := r.Header.Get("Accept-Language"); acceptLang != "" {
+		if idx := strings.Index(acceptLang, ","); idx != -1 {
+			language = acceptLang[:idx]
+		} else {
+			language = acceptLang
+		}
+	}
+
+	return umamiRequest{
+		Type: "event",
+		Payload: umamiPayload{
+			Website:  websiteID,
+			Hostname: hostname,
+			URL:      r.URL.Path,
+			Referrer: r.Referer(),
+			Language: language,
+		},
+	}
 }
 
 func (m *trackingMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
@@ -103,26 +136,19 @@ func (m *trackingMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 			return
 		}
 
-		body := trackingBody{
-			Name:     "pageview",
-			Url:      r.URL.Path,
-			Domain:   m.domain,
-			Referrer: r.Referer(),
-		}
+		trackingBody := newTrackingBody(r, m.websiteId, m.domain)
 
-		bodyJSON, err := json.Marshal(body)
-
+		bodyJSON, err := json.Marshal(trackingBody)
 		if err != nil {
-			log.Println("Error marhsalling tracking body JSON")
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			log.Println("Error marshalling tracking body JSON:", err)
+			next.ServeHTTP(w, r)
 			return
 		}
 
 		trackingRequest, err := http.NewRequest("POST", m.trackingURL, bytes.NewBuffer(bodyJSON))
-
 		if err != nil {
 			log.Println("Failed to create POST request to tracking server:", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			next.ServeHTTP(w, r)
 			return
 		}
 
@@ -130,15 +156,23 @@ func (m *trackingMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 		trackingRequest.Header.Add("User-Agent", r.Header.Get("User-Agent"))
 		trackingRequest.Header.Add("X-Forwarded-For", r.Header.Get("X-Forwarded-For"))
 
-		client := &http.Client{}
-
-		trackingResponse, err := client.Do(trackingRequest)
-
-		if err != nil || trackingResponse.StatusCode != 202 {
-			log.Println("Failed sending POST request to tracking server:", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
+		client := &http.Client{
+			Timeout: 5 * time.Second, // Add timeout to avoid hanging
 		}
+
+		// Send tracking request asynchronously to not block the main request
+		go func() {
+			trackingResponse, err := client.Do(trackingRequest)
+			if err != nil {
+				log.Println("Failed sending POST request to tracking server:", err)
+				return
+			}
+			defer trackingResponse.Body.Close()
+
+			if trackingResponse.StatusCode < 200 || trackingResponse.StatusCode >= 300 {
+				log.Printf("Tracking server returned status code: %d", trackingResponse.StatusCode)
+			}
+		}()
 
 		next.ServeHTTP(w, r)
 	})

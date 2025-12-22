@@ -65,7 +65,7 @@
         The Website button (also in POI details) leads to an external website connected to the POI via its underlying OSM data.
     </p>
     <p>
-        To track usage statistics, this site uses a self-hosted <a href="https://github.com/plausible/community-edition" rel="noreferrer noopener" target="_blank">Plausible</a> instance.
+        To track usage statistics, this site uses a self-hosted <a href="https://github.com/umami-software/umami" rel="noreferrer noopener" target="_blank">Umami</a> instance.
         This way, information about your browser type and version is stored, along with your anonymized IP address and the date and time you accessed this site.
     </p>
     <p>
