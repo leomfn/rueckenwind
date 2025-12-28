@@ -25,19 +25,19 @@
 {#if weatherData}
 <div id="weather-info" class="grid-item">
     <div class="info-row">
-        <img src={thermometerUrl}><span class="current">{weatherData.temp_current}</span> <span class="future">{weatherData.temp_future}</span> °C
+        <img src={thermometerUrl} alt="Current and future temperatures in degrees celsius"><span class="current">{weatherData.temp_current}</span> <span class="future">{weatherData.temp_future}</span> °C
     </div>
     <div class="info-row">
-        <img src={windUrl}><span class="current">{weatherData.wind_current}</span> <span class="future">{weatherData.wind_future}</span> km/h
+        <img src={windUrl} alt="Current and future wind speed in kilometers per hour"><span class="current">{weatherData.wind_current}</span> <span class="future">{weatherData.wind_future}</span> km/h
     </div>
     <div class="info-row">
-        <img src={gustUrl}><span class="current">{weatherData.wind_gust_current}</span> <span class="future">{weatherData.wind_gust_future}</span> km/h
+        <img src={gustUrl} alt="Current and future gust speed in kilometers per hour"><span class="current">{weatherData.wind_gust_current}</span> <span class="future">{weatherData.wind_gust_future}</span> km/h
     </div>
     <div class="info-row">
-        <img src={rainUrl}><span class="current">{weatherData.rain_current_text}</span> <span class="future">{weatherData.rain_future_text}</span>
+        <img src={rainUrl} alt="Current and future precipitation"><span class="current">{weatherData.rain_current_text}</span> <span class="future">{weatherData.rain_future_text}</span>
     </div>
     <div class="info-row info-sunset">
-        <img src={sunsetUrl}><span class="current">{weatherData.sunset}</span>
+        <img src={sunsetUrl} alt="Today's sunset time"><span class="current">{weatherData.sunset}</span>
     </div>
 </div>
 {/if}

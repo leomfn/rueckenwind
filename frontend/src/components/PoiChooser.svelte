@@ -1,12 +1,20 @@
 <script lang="ts">
-    import searchUrl from '../../static/images/search.svg';
-    import xUrl from '../../static/images/x.svg';
+    import searchUrl from "../../static/images/search.svg";
+    import xUrl from "../../static/images/x.svg";
 
-    import { pois, poiSelectionChoices, poisLoading, previouslySelectedPoi, selectedPoi, showPoiOptions, userLocation } from "../stores/store";
+    import {
+        pois,
+        poiSelectionChoices,
+        poisLoading,
+        previouslySelectedPoi,
+        selectedPoi,
+        showPoiOptions,
+        userLocation,
+    } from "../stores/store";
 
     const togglePoiOptions = () => {
-        showPoiOptions.update(value => !value);
-    }
+        showPoiOptions.update((value) => !value);
+    };
 
     const selectPoi = (poi: string) => {
         $previouslySelectedPoi = $selectedPoi;
@@ -18,8 +26,11 @@
         // Check if pois have been fetched before
         if (poi in $pois) {
             $poisLoading = false;
-            return
+            return;
         }
+
+        // Track if umami has loaded successfully
+        window.umami?.track(`poi-${poi}`);
 
         fetch("/data/poi", {
             method: "POST",
@@ -34,25 +45,24 @@
         })
             .then((res) => res.json())
             .then((data) => {
-                pois.update(current => {
-                    return {...current, [poi]: data}
-                })
+                pois.update((current) => {
+                    return { ...current, [poi]: data };
+                });
             })
             .then(() => {
                 $poisLoading = false;
-            })
-    }
+            });
+    };
 
     const chooserSymbol = (showPoiOptions: boolean): string => {
         if (showPoiOptions) {
-            return xUrl
+            return xUrl;
         } else if ($selectedPoi in $poiSelectionChoices) {
-            return $poiSelectionChoices[$selectedPoi].img
+            return $poiSelectionChoices[$selectedPoi].img;
         }
 
-
         return searchUrl;
-    }
+    };
 
     let chooserImageSrc: string = chooserSymbol($showPoiOptions);
     $: chooserImageSrc = chooserSymbol($showPoiOptions);
@@ -60,18 +70,32 @@
 
 <div id="sites-fab-container">
     <div>
-        <button id="sites-fab-main" class="sites-fab {$poisLoading ? 'sites-loading' : ''}" on:click={togglePoiOptions}>
-            <img id="sites-fab-main-image" src={chooserImageSrc}>
+        <button
+            id="sites-fab-main"
+            class="sites-fab {$poisLoading ? 'sites-loading' : ''}"
+            on:click={togglePoiOptions}
+        >
+            <img
+                id="sites-fab-main-image"
+                src={chooserImageSrc}
+                alt="Point of interest chooser"
+            />
         </button>
     </div>
     {#if $showPoiOptions}
-    {#each Object.entries($poiSelectionChoices) as [title, config]}
-        <div>
-            <button id="sites-fab-{title}" class="sites-fab sites-fab-choices {title === $selectedPoi ? 'sites-fab-selected' : ''}" on:click={() => selectPoi(title)}>
-                <img src={config.img}>
-            </button>
-        </div>
-    {/each}
+        {#each Object.entries($poiSelectionChoices) as [title, config]}
+            <div>
+                <button
+                    id="sites-fab-{title}"
+                    class="sites-fab sites-fab-choices {title === $selectedPoi
+                        ? 'sites-fab-selected'
+                        : ''}"
+                    on:click={() => selectPoi(title)}
+                >
+                    <img src={config.img} alt={title} />
+                </button>
+            </div>
+        {/each}
     {/if}
 </div>
 

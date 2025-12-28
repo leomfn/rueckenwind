@@ -1,19 +1,37 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <link rel="icon" type="image/png" href="/static/favicon/favicon-48x48.png" sizes="48x48" />
-    <link rel="icon" type="image/svg+xml" href="/static/favicon/favicon.svg" />
-    <link rel="shortcut icon" href="/static/favicon/favicon.ico" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png" />
-    <link rel="manifest" href="/static/site.webmanifest" />
+        <link
+            rel="icon"
+            type="image/png"
+            href="/static/favicon/favicon-48x48.png"
+            sizes="48x48"
+        />
+        <link
+            rel="icon"
+            type="image/svg+xml"
+            href="/static/favicon/favicon.svg"
+        />
+        <link rel="shortcut icon" href="/static/favicon/favicon.ico" />
+        <link
+            rel="apple-touch-icon"
+            sizes="180x180"
+            href="/static/favicon/apple-touch-icon.png"
+        />
+        <link rel="manifest" href="/static/site.webmanifest" />
+        <script
+            defer
+            src="%VITE_TRACKING_URL%"
+            data-website-id="%VITE_TRACKING_ID%"
+        ></script>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rückenwind</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+        <title>Rückenwind</title>
+    </head>
+    <body>
+        <div id="app"></div>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
 </html>

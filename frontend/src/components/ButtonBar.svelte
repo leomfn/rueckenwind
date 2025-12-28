@@ -1,30 +1,43 @@
 <script lang="ts">
-    import detailsUrl from '../../static/images/directions.svg';
-    import xUrl from '../../static/images/x.svg';
+    import detailsUrl from "../../static/images/directions.svg";
+    import xUrl from "../../static/images/x.svg";
 
-    import { poisLoading, selectedPoi, showAboutModal, showPoiDetails, userLocation } from "../stores/store";
+    import {
+        poisLoading,
+        selectedPoi,
+        showAboutModal,
+        showPoiDetails,
+        userLocation,
+    } from "../stores/store";
     import PoiChooser from "./PoiChooser.svelte";
 
     const openAboutModal = () => {
         $showAboutModal = true;
-    }
+    };
 
     const togglePoiDetails = () => {
-        $showPoiDetails  =!$showPoiDetails;
-    }
+        if ($showPoiDetails) {
+            window.umami?.track("poi-show-details");
+        }
+
+        $showPoiDetails = !$showPoiDetails;
+    };
 </script>
 
 <div id="button-bar" class="flex-center">
     {#if $selectedPoi && !$poisLoading}
-    <button class="details-button" on:click={togglePoiDetails}>
-        <img src={$showPoiDetails ? xUrl : detailsUrl} alt="">
-    </button>
+        <button class="details-button" on:click={togglePoiDetails}>
+            <img src={$showPoiDetails ? xUrl : detailsUrl} alt="" />
+        </button>
     {/if}
-    <button class="about-button" on:click={openAboutModal}>About</button>
+    <button
+        class="about-button"
+        on:click={openAboutModal}
+        data-umami-event="about-button">About</button
+    >
     {#if $userLocation}
-    <PoiChooser></PoiChooser>
+        <PoiChooser></PoiChooser>
     {/if}
-
 </div>
 
 <style>
