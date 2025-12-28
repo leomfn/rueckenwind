@@ -7,9 +7,13 @@
     <div class="modal-content">
         <slot></slot>
     </div>
-    <div on:click={onClose} class="modal-underlay"></div>
+    <div on:click={onClose} class="modal-underlay" aria-hidden="true"></div>
     <div class="modal-close-container">
-        <button id="button-close-{name}-modal" class="button-close-modal close-button" on:click={onClose}>
+        <button
+            id="button-close-{name}-modal"
+            class="button-close-modal close-button"
+            on:click={onClose}
+        >
             Close
         </button>
     </div>
