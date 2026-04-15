@@ -145,7 +145,7 @@ type overpassPoiService struct {
 
 func NewOverpassPoiService(maxDistance int64) PoiService {
 	return &overpassPoiService{
-		url:         "https://overpass.private.coffee/api/interpreter",
+		url:         "https://overpass-api.de/api/interpreter",
 		maxDistance: maxDistance,
 	}
 }
