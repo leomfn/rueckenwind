@@ -141,17 +141,30 @@ type PoiService interface {
 type overpassPoiService struct {
 	url         string
 	maxDistance int64
+	userAgent   string
 }
 
-func NewOverpassPoiService(maxDistance int64) PoiService {
+func NewOverpassPoiService(maxDistance int64, userAgent string) PoiService {
 	return &overpassPoiService{
 		url:         "https://overpass-api.de/api/interpreter",
 		maxDistance: maxDistance,
+		userAgent:   userAgent,
 	}
 }
 
 func (s *overpassPoiService) query(query string) (*overpassResult, error) {
-	resp, err := http.Post(s.url, "text/plain", bytes.NewBuffer([]byte(query)))
+	req, err := http.NewRequest(http.MethodPost, s.url, bytes.NewBuffer([]byte(query)))
+	if err != nil {
+		log.Println("Could not build Overpass request")
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	// Overpass usage rules require a custom, identifying user agent for scripts;
+	// stock or faked UAs get blocked. Configurable via OVERPASS_USER_AGENT so
+	// self-hosters can set their own. See https://overpass-api.de/.
+	req.Header.Set("User-Agent", s.userAgent)
+
+	resp, err := http.DefaultClient.Do(req)
 
 	if err != nil {
 		log.Println("Could not fetch POIs")
@@ -159,6 +172,11 @@ func (s *overpassPoiService) query(query string) (*overpassResult, error) {
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Overpass returned non-OK status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("overpass returned status %d", resp.StatusCode)
+	}
 
 	var overpassResult = overpassResult{}
 	if err := json.NewDecoder(resp.Body).Decode(&overpassResult); err != nil {

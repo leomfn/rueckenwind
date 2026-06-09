@@ -158,9 +158,9 @@ type poiHandler struct {
 	service services.PoiService
 }
 
-func NewPoiHandler(maxDistance int64) *poiHandler {
+func NewPoiHandler(maxDistance int64, userAgent string) *poiHandler {
 	return &poiHandler{
-		service: services.NewOverpassPoiService(maxDistance),
+		service: services.NewOverpassPoiService(maxDistance, userAgent),
 	}
 }
 

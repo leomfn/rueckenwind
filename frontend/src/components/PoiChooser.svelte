@@ -43,13 +43,21 @@
                 lat: $userLocation.lat,
             }),
         })
-            .then((res) => res.json())
+            .then((res) => {
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch POIs: ${res.status}`);
+                }
+                return res.json();
+            })
             .then((data) => {
                 pois.update((current) => {
                     return { ...current, [poi]: data };
                 });
             })
-            .then(() => {
+            .catch((err) => {
+                console.error(err);
+            })
+            .finally(() => {
                 $poisLoading = false;
             });
     };

@@ -12,6 +12,7 @@ var (
 	port                int64  = 80
 	staticFilesDir      string = "./frontend/dist"
 	maxOverpassDistance int64  = 25
+	overpassUserAgent   string = "rueckenwind"
 	owmApiKey           string
 	debug               bool = false
 	domain              string
@@ -52,6 +53,13 @@ func init() {
 		if err != nil {
 			log.Fatal("Environment variable MAX_OVERPASS_DISTANCE must be an integer")
 		}
+	}
+
+	overpassUserAgentEnv, exists := os.LookupEnv("OVERPASS_USER_AGENT")
+	if !exists {
+		log.Printf("OVERPASS_USER_AGENT environment variable not set, using default value: %s", overpassUserAgent)
+	} else {
+		overpassUserAgent = overpassUserAgentEnv
 	}
 
 	owmApiKey, exists = os.LookupEnv("OPEN_WEATHER_MAP_API_KEY")

@@ -3,6 +3,7 @@
     import xUrl from "../../static/images/x.svg";
 
     import {
+        pois,
         poisLoading,
         selectedPoi,
         showAboutModal,
@@ -25,7 +26,7 @@
 </script>
 
 <div id="button-bar" class="flex-center">
-    {#if $selectedPoi && !$poisLoading}
+    {#if $selectedPoi && !$poisLoading && $pois[$selectedPoi]}
         <button class="details-button" on:click={togglePoiDetails}>
             <img src={$showPoiDetails ? xUrl : detailsUrl} alt="" />
         </button>
