@@ -19,6 +19,9 @@
         weatherData,
         dataError,
         invalidatePois,
+        showError,
+        clearError,
+        compassStatus,
     } from "./stores/store";
     import { fetchWeather, type Location } from "./lib/api";
     import { distance } from "./lib/geo";
@@ -45,13 +48,13 @@
         try {
             $weatherData = await fetchWeather(location);
             weatherFetchedAt = location;
-            $dataError = "";
         } catch (error) {
             console.error(error);
-            $dataError =
+            showError(
                 error instanceof Error
                     ? error.message
-                    : "Could not load the forecast.";
+                    : "Could not load the forecast.",
+            );
         }
     };
 
@@ -131,7 +134,19 @@
 </div>
 
 {#if $dataError}
-    <div class="data-error" role="status">{$dataError}</div>
+    <div
+        class="data-error"
+        class:below-compass-notice={$compassStatus === "needs-permission" ||
+            $compassStatus === "unavailable"}
+        role="alert"
+    >
+        <span>{$dataError}</span>
+        <button
+            class="data-error-dismiss"
+            on:click={clearError}
+            aria-label="Dismiss message">×</button
+        >
+    </div>
 {/if}
 
 {#if $showAboutModal}
@@ -143,19 +158,43 @@
 {/if}
 
 <style>
+    /* Anchored to the top, because the bottom of the screen belongs to the
+     * button bar. */
     .data-error {
         position: fixed;
         left: 50%;
-        bottom: 1rem;
+        top: 1rem;
         transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
         max-width: 90vw;
-        padding: 0.5rem 0.75rem;
+        padding: 0.5rem 0.5rem 0.5rem 0.75rem;
         border: 1px solid var(--tertiary-warning);
         border-radius: 0.25rem;
         background-color: var(--background);
         color: var(--tertiary-warning);
         font-size: small;
-        text-align: center;
+        text-align: left;
         z-index: 2000;
+    }
+
+    /* Moves clear of the compass permission notice, which sits in the same
+     * place. */
+    .data-error.below-compass-notice {
+        top: 4rem;
+    }
+
+    .data-error-dismiss {
+        flex-shrink: 0;
+        width: 1.5rem;
+        height: 1.5rem;
+        padding: 0;
+        border: none;
+        background: none;
+        color: inherit;
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
     }
 </style>

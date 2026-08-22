@@ -33,6 +33,36 @@ export const weatherData = writable<WeatherData | undefined>();
 // display silently empty.
 export const dataError = writable<string>("");
 
+// How long a message stays on screen before it removes itself.
+const errorDismissDelay = 8000;
+
+let errorTimer: number | undefined;
+
+// Shows a message and schedules its removal. A failure is often not followed by
+// a success, so the message has to expire on its own rather than waiting for
+// one to clear it.
+export const showError = (message: string): void => {
+    if (errorTimer !== undefined) {
+        window.clearTimeout(errorTimer);
+    }
+
+    dataError.set(message);
+
+    errorTimer = window.setTimeout(() => {
+        errorTimer = undefined;
+        dataError.set("");
+    }, errorDismissDelay);
+};
+
+export const clearError = (): void => {
+    if (errorTimer !== undefined) {
+        window.clearTimeout(errorTimer);
+        errorTimer = undefined;
+    }
+
+    dataError.set("");
+};
+
 export const compassStatus = writable<CompassStatus>("pending");
 export const compassRotation = writable<number>(0);
 
@@ -66,13 +96,16 @@ export const loadPois = async (category: string): Promise<void> => {
 
     poisLoading.set(true);
 
+    // This is a deliberate retry when a previous attempt failed, so any message
+    // still on screen is stale.
+    clearError();
+
     try {
         const found = await fetchPois(category, location);
         pois.update((current) => ({ ...current, [category]: found }));
-        dataError.set("");
     } catch (error) {
         console.error(error);
-        dataError.set(
+        showError(
             error instanceof Error ? error.message : "Could not load places.",
         );
     } finally {
