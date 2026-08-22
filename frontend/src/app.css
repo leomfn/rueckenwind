@@ -21,14 +21,42 @@
   /* --background: #B0DFCCff; */
   --background: rgb(238, 254, 247);
   --tertiary: #19B0A4ff;
+  /* A shade darker than --tertiary, so that hairline borders still read in
+     sunlight. --tertiary itself stays the fill colour for pressed buttons,
+     where it already has enough contrast with the text on top of it. */
+  --tertiary-line: #169E93ff;
   --current: #017775ff;
   /* --secondary-background: #F7D5B0ff; */
   --secondary-background: rgb(255, 250, 245);
   --tertiary-warning: #E15C23ff;
   --future: #A23310ff;
+  --border-strong: black;
+  /* A lighter tint of the warning rust. The full-strength colour left the row
+     text below the readable threshold once it was used as a fill. */
+  --selection-background: #E88154ff;
 
   color: var(--font-color);
   background-color: var(--background);
+}
+
+/* For riding at dusk, which the sunset time rather implies. The hues are the
+   ones above with their lightness swapped, so the current/future coding still
+   reads the same way. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --font-color: #D6F3EAff;
+    --background: #0A2B31ff;
+    /* Darker than the light theme's teal, because here it is a fill behind
+       light text rather than behind dark text. */
+    --tertiary: #10746Cff;
+    --tertiary-line: #2FC4B6ff;
+    --current: #3FD0C2ff;
+    --secondary-background: #103A42ff;
+    --tertiary-warning: #FF8A5Cff;
+    --future: #FF9466ff;
+    --border-strong: #6E9C9Cff;
+    --selection-background: #8A3A18ff;
+  }
 }
 
 html, body {
@@ -37,7 +65,7 @@ html, body {
 }
 
 em {
-    color: var(--tertiary);
+    color: var(--current);
     font-style: normal;
     font-weight: bold;
 }
@@ -75,7 +103,7 @@ button {
   height: 40px;
   border-style: solid;
   border-width: 1px;
-  border-color: var(--tertiary);
+  border-color: var(--tertiary-line);
   border-radius: 8px;
   padding: 10px 12px;
   background-color: var(--background);
@@ -96,11 +124,11 @@ a:focus-visible {
 }
 
 .close-button {
-  border-color: black;
+  border-color: var(--border-strong);
 }
 
 .close-button:active {
-  border-color: black;
+  border-color: var(--border-strong);
 }
 
 .is-loading {

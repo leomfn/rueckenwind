@@ -85,6 +85,34 @@ const rotationFromEvent = (event: DeviceOrientationEvent): number | null => {
     return null;
 };
 
+// How strongly each new reading pulls the needle. Lower is steadier but slower
+// to catch up with a real turn.
+const smoothingFactor = 0.15;
+
+// Smooths readings by averaging them as unit vectors. Averaging the degrees
+// directly would swing the needle the long way round every time the heading
+// crosses north, where the reading jumps between 359 and 0.
+const createSmoother = () => {
+    let x: number | null = null;
+    let y: number | null = null;
+
+    return (degrees: number): number => {
+        const radians = (degrees * Math.PI) / 180;
+        const readingX = Math.cos(radians);
+        const readingY = Math.sin(radians);
+
+        if (x === null || y === null) {
+            x = readingX;
+            y = readingY;
+        } else {
+            x += (readingX - x) * smoothingFactor;
+            y += (readingY - y) * smoothingFactor;
+        }
+
+        return (Math.atan2(y, x) * 180) / Math.PI;
+    };
+};
+
 // Starts listening for orientation readings. Returns a function that stops
 // listening again.
 export const startCompass = (
@@ -97,6 +125,7 @@ export const startCompass = (
     }
 
     let receivedReading = false;
+    const smooth = createSmoother();
 
     const handleEvent = (event: Event) => {
         const rotation = rotationFromEvent(event as DeviceOrientationEvent);
@@ -110,7 +139,7 @@ export const startCompass = (
             onStatus("active");
         }
 
-        onRotation(rotation);
+        onRotation(smooth(rotation));
     };
 
     // Both events are registered because support differs between browsers, and

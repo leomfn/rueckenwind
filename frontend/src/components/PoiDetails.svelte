@@ -128,7 +128,7 @@
 
         border-style: solid;
         border-width: 1px;
-        border-color: var(--tertiary);
+        border-color: var(--tertiary-line);
         border-radius: 8px;
         background-color: var(--background);
         color: var(--font-color);
@@ -149,7 +149,7 @@
     .poi-details-table-container {
         max-height: 70%;
         font-size: 1rem;
-        border: solid 1px black;
+        border: solid 1px var(--border-strong);
         border-radius: 5px;
         box-sizing: border-box;
         overflow: auto;
@@ -163,6 +163,6 @@
 
     .poi-details-item:hover,
     .details-selected {
-        background-color: var(--tertiary-warning);
+        background-color: var(--selection-background);
     }
 </style>

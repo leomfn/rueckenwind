@@ -124,7 +124,7 @@
         height: 150px;
         border-width: 2px;
         border-style: solid;
-        border-color: var(--tertiary);
+        border-color: var(--tertiary-line);
         border-radius: 50%;
         background-color: var(--background);
         box-sizing: border-box;
@@ -132,6 +132,15 @@
         display: flex;
         justify-content: center;
         align-items: center;
+    }
+
+    /* POI markers reach 125px from the centre, so the compass needs 250px of
+     * vertical room. A landscape phone gives the compass band about 190px, so
+     * everything inside it is scaled down together. Portrait is unaffected. */
+    @media (max-height: 500px) {
+        .compass-circle {
+            transform: scale(0.7);
+        }
     }
 
     /* Marks the compass as not showing a real heading, so that a rose pointing

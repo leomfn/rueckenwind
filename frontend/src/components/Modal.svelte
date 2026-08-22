@@ -57,7 +57,7 @@
         margin-top: 10dvh;
         overflow-y: auto;
         background-color: var(--secondary-background);
-        border: solid 1px black;
+        border: solid 1px var(--border-strong);
         border-radius: 5px;
         box-shadow: 0px 0px 20px 0px rgba(0, 0, 0, 0.3);
         padding: 0 20px 0px 20px;
