@@ -81,40 +81,24 @@ func (h *staticFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 	return err
 // }
 
-// General handler to facilitate location handling. It is not a http.Handler
-// itself, but can be embedded in other handlers that expect location data to be
-// sent via a form in a POST request.
-type locationHandler struct {
-	lon, lat float64
-}
-
-// Extracts the location coordinates from the request and stores them in the
-// handler. The error returned can be used as an error message to the client.
-func (h *locationHandler) extractLocation(r *http.Request) error {
+// Extracts the location coordinates from the request body. Handlers are shared
+// between concurrent requests, so the coordinates are returned rather than
+// stored on the handler. The error returned can be used as an error message to
+// the client.
+func extractLocation(r *http.Request) (coordinates, error) {
 	// TODO: Add input validation
 	var coordinatesBody coordinates
 
-	err := json.NewDecoder(r.Body).Decode(&coordinatesBody)
-
-	if err != nil {
-		return errors.New("invalid request body")
+	if err := json.NewDecoder(r.Body).Decode(&coordinatesBody); err != nil {
+		return coordinates{}, errors.New("invalid request body")
 	}
 
-	h.lon = coordinatesBody.Lon
-	h.lat = coordinatesBody.Lat
-
-	return nil
+	return coordinatesBody, nil
 }
 
 // Weather
 type weatherHandler struct {
-	locationHandler
 	service services.WeatherService
-}
-
-type WeatherBody struct {
-	coordinates
-	Category string `json:"category"`
 }
 
 func NewWeatherHandler(apiKey string) *weatherHandler {
@@ -129,15 +113,13 @@ type coordinates struct {
 }
 
 func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	err := h.extractLocation(r)
+	location, err := extractLocation(r)
 	if err != nil {
 		http.Error(w, "Could not read location", http.StatusBadRequest)
 		return
 	}
 
-	userLocation := models.Location{Lon: models.Coordinate(h.lon), Lat: models.Coordinate(h.lat)}
-
-	weatherData, err := h.service.GetWeatherForecast(float64(userLocation.Lon), float64(userLocation.Lat))
+	weatherData, err := h.service.GetWeatherForecast(location.Lon, location.Lat)
 	if err != nil {
 		http.Error(w, "Could not fetch weather data", http.StatusInternalServerError)
 		return
