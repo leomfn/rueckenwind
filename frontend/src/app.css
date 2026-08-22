@@ -103,7 +103,7 @@ a:focus-visible {
   border-color: black;
 }
 
-.sites-loading {
+.is-loading {
     animation: pulse 0.5s alternate infinite;
 }
 

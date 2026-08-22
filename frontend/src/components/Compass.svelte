@@ -7,6 +7,7 @@
         poiSelectionChoices,
         poisLoading,
         selectedPoi,
+        weatherLoading,
     } from "../stores/store";
     import { scale } from "svelte/transition";
     import { backOut } from "svelte/easing";
@@ -66,10 +67,9 @@
 
 <div id="compass" class="flex-center" style="rotate: {$compassRotation}deg;">
     <div
-        class="compass-circle {$poisLoading ? 'sites-loading' : ''} {$compassStatus !==
-        'active'
-            ? 'not-calibrated'
-            : ''}"
+        class="compass-circle {$poisLoading || $weatherLoading
+            ? 'is-loading'
+            : ''} {$compassStatus !== 'active' ? 'not-calibrated' : ''}"
     >
         <div class="direction" id="north">N</div>
         <div class="direction" id="east">E</div>

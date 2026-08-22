@@ -44,7 +44,7 @@
     <div>
         <button
             id="sites-fab-main"
-            class="sites-fab {$poisLoading ? 'sites-loading' : ''}"
+            class="sites-fab {$poisLoading ? 'is-loading' : ''}"
             on:click={togglePoiOptions}
         >
             <img

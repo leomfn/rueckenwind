@@ -22,6 +22,7 @@
         showError,
         clearNotice,
         compassStatus,
+        weatherLoading,
     } from "./stores/store";
     import { fetchWeather, type Location } from "./lib/api";
     import { distance } from "./lib/geo";
@@ -45,6 +46,8 @@
     let poisFetchedAt: Location | undefined;
 
     const loadWeather = async (location: Location) => {
+        $weatherLoading = true;
+
         try {
             $weatherData = await fetchWeather(location);
             weatherFetchedAt = location;
@@ -55,6 +58,8 @@
                     ? error.message
                     : "Could not load the forecast.",
             );
+        } finally {
+            $weatherLoading = false;
         }
     };
 

@@ -25,6 +25,8 @@ export const pois = writable<Pois>({});
 
 export const poisLoading = writable<boolean>(false);
 
+export const weatherLoading = writable<boolean>(false);
+
 export const userLocation = writable<Location>();
 
 export const weatherData = writable<WeatherData | undefined>();
