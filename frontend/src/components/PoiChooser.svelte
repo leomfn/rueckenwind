@@ -74,7 +74,8 @@
 <style>
     #sites-fab-container {
         position: absolute;
-        transform: translateX(calc(34px + 20px + 0.5rem));
+        /* Half the About button + half a FAB + the gap. */
+        transform: translateX(calc(34px + 22px + 0.5rem));
         display: flex;
         flex-direction: column-reverse;
         align-items: start;
@@ -83,8 +84,8 @@
 
     .sites-fab {
         position: relative;
-        width: 40px;
-        height: 40px;
+        width: 44px;
+        height: 44px;
         background-color: var(--background);
     }
 

@@ -82,10 +82,12 @@
 
 <style>
     .poi-details {
-        height: 30%;
+        height: 30vh;
+        height: 30dvh;
         width: 80%;
         position: fixed;
-        bottom: 15%;
+        bottom: 15vh;
+        bottom: 15dvh;
         display: flex;
         flex-direction: column;
         gap: 1rem;
@@ -114,13 +116,14 @@
     }
 
     a.button {
-        height: 1rem;
+        min-height: 44px;
         width: auto;
+        box-sizing: border-box;
         display: flex;
         align-items: center;
-        gap: 0.2rem;
-        font-size: x-small;
-        padding: 0.2rem 0.24rem;
+        gap: 0.3rem;
+        font-size: small;
+        padding: 0.4rem 0.7rem;
         font-family: "Open Sans", sans-serif;
 
         border-style: solid;
@@ -139,8 +142,8 @@
     }
 
     img {
-        height: 0.8rem;
-        width: 0.8rem;
+        height: 1rem;
+        width: 1rem;
     }
 
     .poi-details-table-container {

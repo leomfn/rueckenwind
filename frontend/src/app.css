@@ -43,7 +43,9 @@ em {
 }
 
 #app {
+  /* dvh follows the browser chrome on mobile, vh does not. */
   height: 100vh;
+  height: 100dvh;
   width: 100%;
   display: flex;
   justify-content: center;
@@ -84,6 +86,13 @@ button {
 button:active {
     background-color: var(--tertiary);
     border-color: var(--tertiary);
+}
+
+/* Only shown for keyboard navigation, so tapping is unaffected. */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--current);
+  outline-offset: 2px;
 }
 
 .close-button {

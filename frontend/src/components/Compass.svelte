@@ -109,9 +109,11 @@
 
 <style>
     #compass {
-        height: 50%;
+        height: 50vh;
+        height: 50dvh;
         position: fixed;
-        top: 5%;
+        top: 5vh;
+        top: 5dvh;
         display: flex;
         justify-content: center;
         align-items: center;

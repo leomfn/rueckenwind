@@ -33,9 +33,11 @@
 
 <style>
     #weather-info {
-        height: 30%;
+        height: 30vh;
+        height: 30dvh;
         position: fixed;
-        bottom: 15%;
+        bottom: 15vh;
+        bottom: 15dvh;
         font-size: 1rem;
         display: inline-flex;
         flex-direction: column;
