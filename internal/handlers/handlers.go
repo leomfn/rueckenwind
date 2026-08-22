@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/leomfn/rueckenwind/internal/models"
 	"github.com/leomfn/rueckenwind/internal/services"
 )
 
@@ -156,24 +155,15 @@ func (h *poiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var poiResults models.OverpassSites
+	poiResults, err := h.service.GetPois(r.Context(), data.Category, data.Lon, data.Lat)
 
-	switch data.Category {
-	case "camping":
-		poiResults, err = h.service.GetCampingPois(r.Context(), data.Lon, data.Lat)
-	case "water":
-		poiResults, err = h.service.GetDrinkingWaterPois(r.Context(), data.Lon, data.Lat)
-	case "cafe":
-		poiResults, err = h.service.GetCafePois(r.Context(), data.Lon, data.Lat)
-	case "observation":
-		poiResults, err = h.service.GetObservationPois(r.Context(), data.Lon, data.Lat)
-	default:
+	if errors.Is(err, services.ErrUnknownCategory) {
 		http.Error(w, "unknown category", http.StatusBadRequest)
 		return
 	}
 
 	if err != nil {
-		log.Println("Cloud not fetch sites data:", err)
+		log.Println("Could not fetch sites data:", err)
 		http.Error(w, "Error fetching sites", http.StatusInternalServerError)
 		return
 	}

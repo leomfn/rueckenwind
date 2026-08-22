@@ -2,8 +2,12 @@ package services
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -79,6 +83,48 @@ func TestGetWeatherForecastSummarizesTwoEntries(t *testing.T) {
 	if summary.CurrentRainText != "dry" || summary.FutureRainText != "heavy" {
 		t.Errorf("expected rain (dry, heavy), but got (%s, %s)",
 			summary.CurrentRainText, summary.FutureRainText)
+	}
+}
+
+// Every category template must format cleanly with the three arguments
+// GetPois supplies, and must not fall back to scientific notation.
+func TestOverpassQueryTemplates(t *testing.T) {
+	for category, template := range overpassQueries {
+		t.Run(category, func(t *testing.T) {
+			query := fmt.Sprintf(template,
+				25000,
+				strconv.FormatFloat(0.0000001, 'f', coordinateDecimals, 64),
+				strconv.FormatFloat(-13.25, 'f', coordinateDecimals, 64),
+			)
+
+			// fmt reports argument mistakes inline rather than failing.
+			if strings.Contains(query, "%!") {
+				t.Fatalf("template produced a formatting error: %s", query)
+			}
+
+			if strings.Contains(query, "e-") || strings.Contains(query, "e+") {
+				t.Errorf("coordinates were formatted in scientific notation: %s", query)
+			}
+
+			if !strings.Contains(query, "around:25000,0.0000001,-13.2500000") {
+				t.Errorf("expected radius and coordinates in the query, but got: %s", query)
+			}
+		})
+	}
+}
+
+func TestGetPoisRejectsUnknownCategory(t *testing.T) {
+	service := &overpassPoiService{
+		client:      &http.Client{Timeout: overpassRequestTimeout},
+		url:         "http://127.0.0.1:0",
+		maxDistance: 25,
+		userAgent:   "test",
+	}
+
+	_, err := service.GetPois(context.Background(), "unicorns", 10, 52)
+
+	if !errors.Is(err, ErrUnknownCategory) {
+		t.Fatalf("expected ErrUnknownCategory, but got %v", err)
 	}
 }
 

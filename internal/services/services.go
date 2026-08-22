@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -158,11 +160,31 @@ type overpassResult struct {
 	Elements []overpassElement `json:"elements"`
 }
 
+// ErrUnknownCategory is returned for POI categories that have no Overpass query.
+var ErrUnknownCategory = errors.New("unknown poi category")
+
+// Number of decimals used when writing coordinates into an Overpass query,
+// which is roughly centimetre precision.
+const coordinateDecimals = 7
+
+// Overpass query per POI category. Each template is formatted with the search
+// radius in meters, the latitude and the longitude, in that order; clauses that
+// need the location more than once refer back to the same arguments by index.
+var overpassQueries = map[string]string{
+	"camping": `[out:json];nwr["tourism"="camp_site"]["tent"!="no"](around:%[1]d,%[2]s,%[3]s);out geom;`,
+
+	"water": `[out:json];(nwr["amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%[1]d,%[2]s,%[3]s);` +
+		`nwr["drinking_water"="yes"]["access"!="permissive"]["access"!="private"](around:%[1]d,%[2]s,%[3]s);` +
+		`nwr["disused:amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%[1]d,%[2]s,%[3]s););out geom;`,
+
+	"cafe": `[out:json];nwr["amenity"="cafe"](around:%[1]d,%[2]s,%[3]s);out geom;`,
+
+	"observation": `[out:json];(nwr["man_made"="tower"]["tower:type"="observation"](around:%[1]d,%[2]s,%[3]s);` +
+		`nwr["leisure"="bird_hide"](around:%[1]d,%[2]s,%[3]s););out geom;`,
+}
+
 type PoiService interface {
-	GetCampingPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error)
-	GetDrinkingWaterPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error)
-	GetCafePois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error)
-	GetObservationPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error)
+	GetPois(ctx context.Context, category string, lon float64, lat float64) (models.OverpassSites, error)
 }
 
 type overpassPoiService struct {
@@ -243,79 +265,26 @@ func (s *overpassPoiService) convertOverpassResults(pois *overpassResult, lon fl
 	return sites
 }
 
-func (s *overpassPoiService) GetCampingPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error) {
-	query := fmt.Sprintf(`[out:json];nwr["tourism"="camp_site"]["tent"!="no"](around:%d,%v,%v);out geom;`,
-		s.maxDistance*1000,
-		lat,
-		lon)
-
-	foundPois, err := s.query(ctx, query)
-
-	if err != nil {
-		log.Println("Could not fetch campsites")
-		return nil, err
+// GetPois looks up the POIs of the given category around the location, sorted
+// by distance and thinned out to one POI per bearing bucket.
+func (s *overpassPoiService) GetPois(ctx context.Context, category string, lon float64, lat float64) (models.OverpassSites, error) {
+	queryTemplate, known := overpassQueries[category]
+	if !known {
+		return nil, fmt.Errorf("%w: %s", ErrUnknownCategory, category)
 	}
 
-	pois := s.convertOverpassResults(foundPois, lon, lat)
-	pois.SortByDistance()
-	pois.FilterByBearing()
-
-	return pois, nil
-}
-
-func (s *overpassPoiService) GetDrinkingWaterPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error) {
-	query := fmt.Sprintf(`[out:json];(nwr["amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v);nwr["drinking_water"="yes"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v);nwr["disused:amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v););out geom;`,
-		s.maxDistance*1000, lat, lon,
-		s.maxDistance*1000, lat, lon,
-		s.maxDistance*1000, lat, lon)
+	// Format the coordinates with a fixed number of decimals. The default
+	// float formatting switches to scientific notation for small values, which
+	// Overpass does not accept.
+	query := fmt.Sprintf(queryTemplate,
+		s.maxDistance*1000,
+		strconv.FormatFloat(lat, 'f', coordinateDecimals, 64),
+		strconv.FormatFloat(lon, 'f', coordinateDecimals, 64),
+	)
 
 	foundPois, err := s.query(ctx, query)
-
 	if err != nil {
-		log.Println("Could not fetch drinking water")
-		return nil, err
-	}
-
-	pois := s.convertOverpassResults(foundPois, lon, lat)
-	pois.SortByDistance()
-	pois.FilterByBearing()
-
-	return pois, nil
-}
-
-func (s *overpassPoiService) GetCafePois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error) {
-	query := fmt.Sprintf(`[out:json];nwr["amenity"="cafe"](around:%d,%v,%v);out geom;`,
-		s.maxDistance*1000,
-		lat,
-		lon)
-
-	foundPois, err := s.query(ctx, query)
-
-	if err != nil {
-		log.Println("Could not fetch cafes")
-		return nil, err
-	}
-
-	pois := s.convertOverpassResults(foundPois, lon, lat)
-	pois.SortByDistance()
-	pois.FilterByBearing()
-
-	return pois, nil
-}
-
-func (s *overpassPoiService) GetObservationPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error) {
-	query := fmt.Sprintf(`[out:json];(nwr["man_made"="tower"]["tower:type"="observation"](around:%d,%v,%v);nwr["leisure"="bird_hide"](around:%d,%v,%v););out geom;`,
-		s.maxDistance*1000,
-		lat,
-		lon,
-		s.maxDistance*1000,
-		lat,
-		lon)
-
-	foundPois, err := s.query(ctx, query)
-
-	if err != nil {
-		log.Println("Could not fetch observation sites")
+		log.Printf("Could not fetch POIs of category %s", category)
 		return nil, err
 	}
 
