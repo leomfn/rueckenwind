@@ -1,95 +1,138 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
 
     import ButtonBar from "./components/ButtonBar.svelte";
     import Compass from "./components/Compass.svelte";
     import WeatherInfo from "./components/WeatherInfo.svelte";
     import AboutModal from "./components/AboutModal.svelte";
     import InfoModal from "./components/InfoModal.svelte";
-
-    import { showAboutModal, showInfoModal, infoTitle, infoText, userLocation, showPoiDetails, poisLoading } from "./stores/store";
     import PoiDetails from "./components/PoiDetails.svelte";
 
-    // load weather data
-    interface WeatherData {
-        temp_current: number;
-        wind_current: number;
-        wind_gust_current: number;
-        wind_deg_current: number;
-        wind_scale_current: number;
-        rain_current_text: string;
+    import {
+        showAboutModal,
+        showInfoModal,
+        infoTitle,
+        infoText,
+        userLocation,
+        showPoiDetails,
+        poisLoading,
+        weatherData,
+        dataError,
+        invalidatePois,
+    } from "./stores/store";
+    import { fetchWeather, type Location } from "./lib/api";
+    import { distance } from "./lib/geo";
 
-        temp_future: number;
-        wind_future: number;
-        wind_gust_future: number;
-        wind_deg_future: number;
-        wind_scale_future: number;
-        rain_future_text: string;
+    // How far the user has to move before the data fetched for their previous
+    // position stops being a good description of where they are. POIs are
+    // refetched sooner than the weather, because their bearings and distances
+    // are drawn on the compass.
+    const poiRefreshDistance = 1; // km
+    const weatherRefreshDistance = 5; // km
 
-        sunset: string;
-    }
+    // The forecast is published in three hour blocks, but the current block
+    // rolls over, so it is refreshed on a timer as well.
+    const weatherRefreshInterval = 10 * 60 * 1000; // ms
 
-    let weatherData: WeatherData;
+    let watchId: number | undefined;
+    let weatherTimer: number | undefined;
 
-    const getData = () => {
-        fetch("/data/weather", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                lon: $userLocation.lon,
-                lat: $userLocation.lat,
-            }),
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                weatherData = data;
-            });
+    // Where the data currently on screen was fetched for.
+    let weatherFetchedAt: Location | undefined;
+    let poisFetchedAt: Location | undefined;
+
+    const loadWeather = async (location: Location) => {
+        try {
+            $weatherData = await fetchWeather(location);
+            weatherFetchedAt = location;
+            $dataError = "";
+        } catch (error) {
+            console.error(error);
+            $dataError =
+                error instanceof Error
+                    ? error.message
+                    : "Could not load the forecast.";
+        }
     };
 
-    const getUserLocation = () => {
-        const locationSuccess = (position: GeolocationPosition) => {
-            userLocation.set({
-                lat: position.coords.latitude,
-                lon: position.coords.longitude
-            })
+    const onLocationUpdate = (position: GeolocationPosition) => {
+        const location: Location = {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+        };
 
-            getData();
+        $userLocation = location;
+
+        if (
+            weatherFetchedAt === undefined ||
+            distance(weatherFetchedAt, location) >= weatherRefreshDistance
+        ) {
+            void loadWeather(location);
         }
 
-        const locationFailure = () => {
-            $infoTitle = "Permission required";
-            $infoText = "This site doesn't work without location permission.";
-            $showInfoModal = true;
+        if (poisFetchedAt === undefined) {
+            poisFetchedAt = location;
+        } else if (distance(poisFetchedAt, location) >= poiRefreshDistance) {
+            poisFetchedAt = location;
+            invalidatePois();
         }
+    };
 
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                locationSuccess,
-                locationFailure,
-                {
-                    enableHighAccuracy: true,
-                }
-            )
-        }
-    }
+    const onLocationFailure = () => {
+        $infoTitle = "Permission required";
+        $infoText = "This site doesn't work without location permission.";
+        $showInfoModal = true;
+    };
 
     onMount(() => {
-        getUserLocation();
+        if (!navigator.geolocation) {
+            $infoTitle = "Location unavailable";
+            $infoText = "This browser cannot report your location.";
+            $showInfoModal = true;
+            return;
+        }
+
+        // Watching rather than taking a single fix, because the whole point of
+        // the app is that the user is moving.
+        watchId = navigator.geolocation.watchPosition(
+            onLocationUpdate,
+            onLocationFailure,
+            {
+                enableHighAccuracy: true,
+            },
+        );
+
+        weatherTimer = window.setInterval(() => {
+            if ($userLocation) {
+                void loadWeather($userLocation);
+            }
+        }, weatherRefreshInterval);
     });
 
+    onDestroy(() => {
+        if (watchId !== undefined) {
+            navigator.geolocation.clearWatch(watchId);
+        }
+
+        if (weatherTimer !== undefined) {
+            window.clearInterval(weatherTimer);
+        }
+    });
 </script>
 
 <div id="main-container" class="main-container">
-    <Compass compassDataWind={weatherData}/>
+    <Compass compassDataWind={$weatherData}/>
     {#if $showPoiDetails && !$poisLoading}
     <PoiDetails></PoiDetails>
     {:else}
-    <WeatherInfo weatherData={weatherData} />
+    <WeatherInfo weatherData={$weatherData} />
     {/if}
     <ButtonBar />
 </div>
+
+{#if $dataError}
+    <div class="data-error" role="status">{$dataError}</div>
+{/if}
 
 {#if $showAboutModal}
     <AboutModal></AboutModal>
@@ -98,3 +141,21 @@
 {#if $showInfoModal}
     <InfoModal title={$infoTitle} text={$infoText}></InfoModal>
 {/if}
+
+<style>
+    .data-error {
+        position: fixed;
+        left: 50%;
+        bottom: 1rem;
+        transform: translateX(-50%);
+        max-width: 90vw;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--tertiary-warning);
+        border-radius: 0.25rem;
+        background-color: var(--background);
+        color: var(--tertiary-warning);
+        font-size: small;
+        text-align: center;
+        z-index: 2000;
+    }
+</style>
