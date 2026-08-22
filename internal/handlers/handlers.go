@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strconv"
 
 	"github.com/leomfn/rueckenwind/internal/services"
 )
@@ -62,6 +63,18 @@ func (h *staticFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // General handlers
+
+// How long a client should wait before retrying a request that failed because
+// an upstream service was busy.
+const upstreamRetryAfterSeconds = 5
+
+// Reports that an upstream service is temporarily unavailable. This is a 503
+// rather than a 500, because nothing is wrong with the request or with this
+// server, and trying again is likely to work.
+func writeUpstreamBusy(w http.ResponseWriter, message string) {
+	w.Header().Set("Retry-After", strconv.Itoa(upstreamRetryAfterSeconds))
+	http.Error(w, message, http.StatusServiceUnavailable)
+}
 
 // Extracts the location coordinates from the request body. Handlers are shared
 // between concurrent requests, so the coordinates are returned rather than
@@ -124,7 +137,15 @@ func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	weatherData, err := h.service.GetWeatherForecast(r.Context(), location.Lon, location.Lat)
+
+	if errors.Is(err, services.ErrUpstreamBusy) {
+		log.Println("Could not fetch weather data:", err)
+		writeUpstreamBusy(w, "The forecast is temporarily unavailable")
+		return
+	}
+
 	if err != nil {
+		log.Println("Could not fetch weather data:", err)
 		http.Error(w, "Could not fetch weather data", http.StatusInternalServerError)
 		return
 	}
@@ -168,6 +189,12 @@ func (h *poiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if errors.Is(err, services.ErrUnknownCategory) {
 		http.Error(w, "unknown category", http.StatusBadRequest)
+		return
+	}
+
+	if errors.Is(err, services.ErrUpstreamBusy) {
+		log.Println("Could not fetch sites data:", err)
+		writeUpstreamBusy(w, "Places are temporarily unavailable")
 		return
 	}
 

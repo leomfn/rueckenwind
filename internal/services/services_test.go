@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/leomfn/rueckenwind/internal/cache"
 	"github.com/leomfn/rueckenwind/internal/models"
@@ -19,6 +21,7 @@ func newTestPoiService(url string) *overpassPoiService {
 	return &overpassPoiService{
 		client:      &http.Client{Timeout: overpassRequestTimeout},
 		cache:       cache.New[*overpassResult](poiCacheTtl),
+		slots:       make(chan struct{}, maxConcurrentOverpassRequests),
 		url:         url,
 		maxDistance: 25,
 		userAgent:   "test",
@@ -185,6 +188,135 @@ func TestGetPoisCachesByGridCell(t *testing.T) {
 
 	if upstreamCalls.Load() != 3 {
 		t.Errorf("expected categories to be cached separately, but got %d calls", upstreamCalls.Load())
+	}
+}
+
+// A busy upstream has to be distinguishable from a broken one, so that the
+// handler can answer with 503 instead of 500.
+func TestGetPoisReportsTransientUpstreamStatuses(t *testing.T) {
+	tests := []struct {
+		status    int
+		transient bool
+	}{
+		{http.StatusTooManyRequests, true},
+		{http.StatusGatewayTimeout, true},
+		{http.StatusBadGateway, true},
+		{http.StatusServiceUnavailable, true},
+		{http.StatusBadRequest, false},
+		{http.StatusNotFound, false},
+	}
+
+	for _, test := range tests {
+		t.Run(http.StatusText(test.status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(test.status)
+			}))
+			defer server.Close()
+
+			service := newTestPoiService(server.URL)
+
+			_, err := service.GetPois(context.Background(), "camping", 10, 52)
+			if err == nil {
+				t.Fatal("expected an error, but got none")
+			}
+
+			if errors.Is(err, ErrUpstreamBusy) != test.transient {
+				t.Errorf("expected transient=%v for status %d, but got %v",
+					test.transient, test.status, err)
+			}
+		})
+	}
+}
+
+func TestGetWeatherForecastReportsTransientUpstreamStatuses(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	_, err := newTestWeatherService(server.URL).GetWeatherForecast(context.Background(), 10, 52)
+
+	if !errors.Is(err, ErrUpstreamBusy) {
+		t.Fatalf("expected ErrUpstreamBusy, but got %v", err)
+	}
+}
+
+// Overpass rejects requests beyond its per-address slots, so no more than the
+// allowed number may be in flight at once.
+func TestQueryLimitsConcurrentUpstreamRequests(t *testing.T) {
+	var inFlight, peak atomic.Int64
+
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		current := inFlight.Add(1)
+		for {
+			observed := peak.Load()
+			if current <= observed || peak.CompareAndSwap(observed, current) {
+				break
+			}
+		}
+
+		<-release
+
+		inFlight.Add(-1)
+		w.Write([]byte(`{"elements":[]}`))
+	}))
+	defer server.Close()
+
+	service := newTestPoiService(server.URL)
+
+	var wg sync.WaitGroup
+	for i := range 10 {
+		wg.Go(func() {
+			// Distinct locations, so that the cache does not collapse them.
+			service.GetPois(context.Background(), "camping", float64(i), 52)
+		})
+	}
+
+	// Let the requests pile up against the slot limit before draining them.
+	time.Sleep(100 * time.Millisecond)
+	close(release)
+	wg.Wait()
+
+	if peak.Load() > maxConcurrentOverpassRequests {
+		t.Errorf("expected at most %d concurrent requests, but saw %d",
+			maxConcurrentOverpassRequests, peak.Load())
+	}
+
+	if peak.Load() == 0 {
+		t.Error("expected at least one request to reach the server")
+	}
+}
+
+// A caller that goes away while queued must not keep waiting for a slot.
+func TestQueryStopsWaitingWhenCallerCancels(t *testing.T) {
+	release := make(chan struct{})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+	}))
+
+	// Deferred calls run in reverse order, so the handlers are released before
+	// Close waits for them to finish.
+	defer server.Close()
+	defer close(release)
+
+	service := newTestPoiService(server.URL)
+
+	// Occupy every slot.
+	for i := range maxConcurrentOverpassRequests {
+		go service.GetPois(context.Background(), "camping", float64(i), 52)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := service.GetPois(ctx, "camping", 99, 52)
+
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, but got %v", err)
 	}
 }
 
