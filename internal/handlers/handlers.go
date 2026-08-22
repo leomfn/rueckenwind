@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math"
 	"net/http"
 
 	"github.com/leomfn/rueckenwind/internal/services"
@@ -85,11 +86,14 @@ func (h *staticFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // stored on the handler. The error returned can be used as an error message to
 // the client.
 func extractLocation(r *http.Request) (coordinates, error) {
-	// TODO: Add input validation
 	var coordinatesBody coordinates
 
 	if err := json.NewDecoder(r.Body).Decode(&coordinatesBody); err != nil {
 		return coordinates{}, errors.New("invalid request body")
+	}
+
+	if err := coordinatesBody.validate(); err != nil {
+		return coordinates{}, err
 	}
 
 	return coordinatesBody, nil
@@ -111,10 +115,29 @@ type coordinates struct {
 	Lat float64 `json:"lat"`
 }
 
+// Rejects coordinates that are not finite or outside the valid range, so that
+// they can never be written into an upstream query. Missing fields decode to
+// zero, which is a valid location, so they are accepted.
+func (c coordinates) validate() error {
+	if math.IsNaN(c.Lat) || math.IsNaN(c.Lon) || math.IsInf(c.Lat, 0) || math.IsInf(c.Lon, 0) {
+		return errors.New("coordinates must be finite numbers")
+	}
+
+	if c.Lat < -90 || c.Lat > 90 {
+		return errors.New("latitude must be between -90 and 90")
+	}
+
+	if c.Lon < -180 || c.Lon > 180 {
+		return errors.New("longitude must be between -180 and 180")
+	}
+
+	return nil
+}
+
 func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	location, err := extractLocation(r)
 	if err != nil {
-		http.Error(w, "Could not read location", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -130,9 +153,8 @@ func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // POI sites
 type poiData struct {
-	Lon      float64 `json:"lon"`
-	Lat      float64 `json:"lat"`
-	Category string  `json:"category"`
+	coordinates
+	Category string `json:"category"`
 }
 
 type poiHandler struct {
@@ -152,6 +174,11 @@ func (h *poiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, "invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if err := data.validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -33,7 +34,8 @@ func TestWeatherHandlerIsRequestScoped(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := range 50 {
 		wg.Go(func() {
-			lon, lat := float64(i), float64(i+100)
+			// Distinct but valid coordinates, so each request can be told apart.
+			lon, lat := float64(i), float64(i+20)
 
 			body := fmt.Sprintf(`{"lon":%v,"lat":%v}`, lon, lat)
 			request := httptest.NewRequest(http.MethodPost, "/data/weather", strings.NewReader(body))
@@ -77,4 +79,53 @@ func TestExtractLocation(t *testing.T) {
 			t.Fatal("expected an error for a malformed body, but got none")
 		}
 	})
+
+	t.Run("out of range coordinates are rejected", func(t *testing.T) {
+		bodies := []string{
+			`{"lon":10,"lat":91}`,
+			`{"lon":10,"lat":-91}`,
+			`{"lon":181,"lat":52}`,
+			`{"lon":-181,"lat":52}`,
+			`{"lon":1e300,"lat":1e300}`,
+		}
+
+		for _, body := range bodies {
+			request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+
+			if _, err := extractLocation(request); err == nil {
+				t.Errorf("expected %s to be rejected, but it was accepted", body)
+			}
+		}
+	})
+
+	t.Run("edge coordinates are accepted", func(t *testing.T) {
+		bodies := []string{
+			`{"lon":180,"lat":90}`,
+			`{"lon":-180,"lat":-90}`,
+			`{"lon":0,"lat":0}`,
+		}
+
+		for _, body := range bodies {
+			request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+
+			if _, err := extractLocation(request); err != nil {
+				t.Errorf("expected %s to be accepted, but got %v", body, err)
+			}
+		}
+	})
+}
+
+func TestCoordinatesValidateRejectsNonFinite(t *testing.T) {
+	tests := []coordinates{
+		{Lon: math.NaN(), Lat: 52},
+		{Lon: 10, Lat: math.NaN()},
+		{Lon: math.Inf(1), Lat: 52},
+		{Lon: 10, Lat: math.Inf(-1)},
+	}
+
+	for _, test := range tests {
+		if err := test.validate(); err == nil {
+			t.Errorf("expected (%v, %v) to be rejected, but it was accepted", test.Lon, test.Lat)
+		}
+	}
 }
