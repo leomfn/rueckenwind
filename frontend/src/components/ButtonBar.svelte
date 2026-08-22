@@ -43,9 +43,11 @@
 
 <style>
     #button-bar {
-        height: 10%;
+        height: 10vh;
+        height: 10dvh;
         position: fixed;
-        bottom: 5%;
+        bottom: 5vh;
+        bottom: 5dvh;
         display: flex;
         align-items: end;
         justify-content: center;
@@ -53,9 +55,10 @@
 
     .details-button {
         position: absolute;
-        transform: translateX(calc(-34px - 20px - 0.5rem));
-        width: 40px;
-        height: 40px;
+        /* Half the About button + half a FAB + the gap. */
+        transform: translateX(calc(-34px - 22px - 0.5rem));
+        width: 44px;
+        height: 44px;
         background-color: var(--background);
     }
 

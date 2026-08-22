@@ -3,13 +3,12 @@
     import xUrl from "../../static/images/x.svg";
 
     import {
-        pois,
+        loadPois,
         poiSelectionChoices,
         poisLoading,
         previouslySelectedPoi,
         selectedPoi,
         showPoiOptions,
-        userLocation,
     } from "../stores/store";
 
     const togglePoiOptions = () => {
@@ -21,45 +20,10 @@
         $selectedPoi = poi;
         $showPoiOptions = false;
 
-        $poisLoading = true;
-
-        // Check if pois have been fetched before
-        if (poi in $pois) {
-            $poisLoading = false;
-            return;
-        }
-
         // Track if umami has loaded successfully
         window.umami?.track(`poi-${poi}`);
 
-        fetch("/data/poi", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                category: poi,
-                lon: $userLocation.lon,
-                lat: $userLocation.lat,
-            }),
-        })
-            .then((res) => {
-                if (!res.ok) {
-                    throw new Error(`Failed to fetch POIs: ${res.status}`);
-                }
-                return res.json();
-            })
-            .then((data) => {
-                pois.update((current) => {
-                    return { ...current, [poi]: data };
-                });
-            })
-            .catch((err) => {
-                console.error(err);
-            })
-            .finally(() => {
-                $poisLoading = false;
-            });
+        void loadPois(poi);
     };
 
     const chooserSymbol = (showPoiOptions: boolean): string => {
@@ -80,7 +44,7 @@
     <div>
         <button
             id="sites-fab-main"
-            class="sites-fab {$poisLoading ? 'sites-loading' : ''}"
+            class="sites-fab {$poisLoading ? 'is-loading' : ''}"
             on:click={togglePoiOptions}
         >
             <img
@@ -110,7 +74,8 @@
 <style>
     #sites-fab-container {
         position: absolute;
-        transform: translateX(calc(34px + 20px + 0.5rem));
+        /* Half the About button + half a FAB + the gap. */
+        transform: translateX(calc(34px + 22px + 0.5rem));
         display: flex;
         flex-direction: column-reverse;
         align-items: start;
@@ -119,8 +84,8 @@
 
     .sites-fab {
         position: relative;
-        width: 40px;
-        height: 40px;
+        width: 44px;
+        height: 44px;
         background-color: var(--background);
     }
 

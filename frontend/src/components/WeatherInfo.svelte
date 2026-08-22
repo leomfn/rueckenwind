@@ -5,21 +5,10 @@
     import rainUrl from '../../static/images/rain.svg';
     import sunsetUrl from '../../static/images/sunset.svg';
 
-    interface WeatherData {
-        temp_current: number;
-        wind_current: number;
-        wind_gust_current: number;
-        rain_current_text: string;
+    import type { WeatherData } from '../lib/api';
 
-        temp_future: number;
-        wind_future: number;
-        wind_gust_future: number;
-        rain_future_text: string;
-
-        sunset: string;
-    }
-
-    export let weatherData: WeatherData;
+    // Undefined until the first forecast has arrived.
+    export let weatherData: WeatherData | undefined;
 </script>
 
 {#if weatherData}
@@ -44,9 +33,11 @@
 
 <style>
     #weather-info {
-        height: 30%;
+        height: 30vh;
+        height: 30dvh;
         position: fixed;
-        bottom: 15%;
+        bottom: 15vh;
+        bottom: 15dvh;
         font-size: 1rem;
         display: inline-flex;
         flex-direction: column;

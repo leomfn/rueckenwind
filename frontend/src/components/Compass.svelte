@@ -1,36 +1,76 @@
 <script lang="ts">
-    import { onMount } from "svelte";
-    import { pois, poiSelectionChoices, poisLoading, selectedPoi } from "../stores/store";
+    import { onDestroy, onMount } from "svelte";
+    import {
+        compassRotation,
+        compassStatus,
+        pois,
+        poiSelectionChoices,
+        poisLoading,
+        selectedPoi,
+        weatherLoading,
+    } from "../stores/store";
     import { scale } from "svelte/transition";
     import { backOut } from "svelte/easing";
+    import {
+        needsPermission,
+        requestPermission,
+        startCompass,
+    } from "../lib/orientation";
 
-    interface CompassDataWind {
-        wind_deg_current: number;
-        wind_scale_current: number;
+    import type { WeatherData } from "../lib/api";
 
-        wind_deg_future: number;
-        wind_scale_future: number;
-    }
+    // Undefined until the first forecast has arrived.
+    export let compassDataWind: WeatherData | undefined
 
-    export let compassDataWind: CompassDataWind
+    let stopCompass: (() => void) | undefined;
 
-    let orientationDegrees: number = 0;
+    const listen = () => {
+        stopCompass?.();
+        stopCompass = startCompass(
+            (degrees) => ($compassRotation = degrees),
+            (status) => ($compassStatus = status),
+        );
+    };
+
+    // iOS only delivers readings after the user has allowed it, and only asks
+    // when the request comes from a gesture like this one.
+    const enableCompass = async () => {
+        if (await requestPermission()) {
+            $compassStatus = "pending";
+            listen();
+        } else {
+            $compassStatus = "unavailable";
+        }
+    };
 
     onMount(() => {
-        // TODO: differentiate iOS and Android
-        // TODO: add modal for iOS to give permission
-        window.addEventListener('deviceorientationabsolute', event => {
-            if (event.alpha != null) {
-                orientationDegrees = event.alpha;
-            } else {
-                orientationDegrees = 0;
-            }
-        })
-    })
+        if (needsPermission()) {
+            $compassStatus = "needs-permission";
+            return;
+        }
+
+        listen();
+    });
+
+    onDestroy(() => stopCompass?.());
 </script>
 
-<div id="compass" class="flex-center" style="rotate: {orientationDegrees}deg;">
-    <div class="compass-circle {$poisLoading ? 'sites-loading' : ''}">
+{#if $compassStatus === "needs-permission"}
+    <button class="compass-permission" on:click={enableCompass}>
+        Enable compass
+    </button>
+{:else if $compassStatus === "unavailable"}
+    <div class="compass-permission" role="status">
+        Compass unavailable, showing north up
+    </div>
+{/if}
+
+<div id="compass" class="flex-center" style="rotate: {$compassRotation}deg;">
+    <div
+        class="compass-circle {$poisLoading || $weatherLoading
+            ? 'is-loading'
+            : ''} {$compassStatus !== 'active' ? 'not-calibrated' : ''}"
+    >
         <div class="direction" id="north">N</div>
         <div class="direction" id="east">E</div>
         <div class="direction" id="south">S</div>
@@ -54,13 +94,13 @@
             id="{$selectedPoi}-pois"
             class="sites-container"
             >
-            {#each $pois[$selectedPoi] as poi, index (poi)}
+            {#each $pois[$selectedPoi] ?? [] as poi, index (poi)}
                 <div
                     in:scale={{ duration: 500, easing: backOut }}
                     out:scale={{ duration: 500 }}
                     class="compass-site {$selectedPoi}-poi" style="rotate: {poi.bearing}deg; height: calc(75px + {poi.distance_pixel}px);">
-                    <div class="site-text {index === $poiSelectionChoices[$selectedPoi].detailsIndex ? 'details-selected' : ''}">{poi.distance_text}</div>
-                    <div class="site-indicator {index === $poiSelectionChoices[$selectedPoi].detailsIndex ? 'details-selected' : ''}"></div>
+                    <div class="site-text {index === $poiSelectionChoices[$selectedPoi]?.detailsIndex ? 'details-selected' : ''}">{poi.distance_text}</div>
+                    <div class="site-indicator {index === $poiSelectionChoices[$selectedPoi]?.detailsIndex ? 'details-selected' : ''}"></div>
                 </div>
             {/each}
         </div>
@@ -69,9 +109,11 @@
 
 <style>
     #compass {
-        height: 50%;
+        height: 50vh;
+        height: 50dvh;
         position: fixed;
-        top: 5%;
+        top: 5vh;
+        top: 5dvh;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -82,7 +124,7 @@
         height: 150px;
         border-width: 2px;
         border-style: solid;
-        border-color: var(--tertiary);
+        border-color: var(--tertiary-line);
         border-radius: 50%;
         background-color: var(--background);
         box-sizing: border-box;
@@ -92,10 +134,40 @@
         align-items: center;
     }
 
-    /* TODO: Currently, there is no way to detect magnetometer calibration. Maybe
-     * find an alternative. */
+    /* POI markers reach 125px from the centre, so the compass needs 250px of
+     * vertical room. A landscape phone gives the compass band about 190px, so
+     * everything inside it is scaled down together. Portrait is unaffected. */
+    @media (max-height: 500px) {
+        .compass-circle {
+            transform: scale(0.7);
+        }
+    }
+
+    /* Marks the compass as not showing a real heading, so that a rose pointing
+     * north is not mistaken for a reading. */
     .not-calibrated {
         border-color: var(--tertiary-warning);
+    }
+
+    /* The border carries the warning; the text stays in the regular font
+     * colour, which is the only one that reads at this size. */
+    .compass-permission {
+        position: fixed;
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: auto;
+        height: auto;
+        min-height: 44px;
+        max-width: 90vw;
+        padding: 0.4rem 0.75rem;
+        border: 1px solid var(--tertiary-warning);
+        border-radius: 5px;
+        background-color: var(--secondary-background);
+        color: var(--font-color);
+        font-size: small;
+        text-align: center;
+        z-index: 1500;
     }
 
     .direction {

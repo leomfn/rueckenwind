@@ -1,7 +1,15 @@
 <script lang="ts">
     export let name: String;
     export let onClose;
+
+    const onKeydown = (event: KeyboardEvent) => {
+        if (event.key === "Escape") {
+            onClose();
+        }
+    };
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 <div id="{name}-modal" class="modal">
     <div class="modal-content">
@@ -21,7 +29,8 @@
 
 <style>
     .modal {
-        height: 100%;
+        height: 100vh;
+        height: 100dvh;
         width: 100%;
         display: flex;
         flex-direction: column;
@@ -45,10 +54,10 @@
         width: 80%;
         max-width: 600px;
         max-height: 75%;
-        margin-top: 10vh;
-        overflow-y: scroll;
+        margin-top: 10dvh;
+        overflow-y: auto;
         background-color: var(--secondary-background);
-        border: solid 1px black;
+        border: solid 1px var(--border-strong);
         border-radius: 5px;
         box-shadow: 0px 0px 20px 0px rgba(0, 0, 0, 0.3);
         padding: 0 20px 0px 20px;
@@ -67,9 +76,11 @@
     }
 
     .modal-close-container {
-        height: 10%;
+        height: 10vh;
+        height: 10dvh;
         position: fixed;
-        bottom: 5%;
+        bottom: 5vh;
+        bottom: 5dvh;
         display: flex;
         justify-content: center;
         align-items: end;

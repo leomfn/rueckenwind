@@ -3,6 +3,7 @@
     import websiteUrl from "../../static/images/globe.svg";
 
     import {
+        categoryLabel,
         pois,
         poiSelectionChoices,
         selectedPoi,
@@ -28,9 +29,14 @@
 
 <div class="poi-details">
     <div class="poi-details-table-container">
+        {#if ($pois[$selectedPoi] ?? []).length === 0}
+            <p class="poi-details-empty">
+                No {categoryLabel($selectedPoi)} found nearby.
+            </p>
+        {/if}
         <table>
             <tbody>
-                {#each $pois[$selectedPoi] as poi, index (poi)}
+                {#each $pois[$selectedPoi] ?? [] as poi, index (poi)}
                     <tr
                         class="poi-details-item {index ===
                         $poiSelectionChoices[$selectedPoi].detailsIndex
@@ -76,10 +82,12 @@
 
 <style>
     .poi-details {
-        height: 30%;
+        height: 30vh;
+        height: 30dvh;
         width: 80%;
         position: fixed;
-        bottom: 15%;
+        bottom: 15vh;
+        bottom: 15dvh;
         display: flex;
         flex-direction: column;
         gap: 1rem;
@@ -96,23 +104,31 @@
         font-size: smaller;
     }
 
+    /* Rows are tap targets, so they need enough height to hit while riding. */
     td {
-        padding: 0.1rem 0.5rem;
+        padding: 0.6rem 0.5rem;
+    }
+
+    .poi-details-empty {
+        margin: 0;
+        padding: 0.6rem 0.5rem;
+        font-size: smaller;
     }
 
     a.button {
-        height: 1rem;
+        min-height: 44px;
         width: auto;
+        box-sizing: border-box;
         display: flex;
         align-items: center;
-        gap: 0.2rem;
-        font-size: x-small;
-        padding: 0.2rem 0.24rem;
+        gap: 0.3rem;
+        font-size: small;
+        padding: 0.4rem 0.7rem;
         font-family: "Open Sans", sans-serif;
 
         border-style: solid;
         border-width: 1px;
-        border-color: var(--tertiary);
+        border-color: var(--tertiary-line);
         border-radius: 8px;
         background-color: var(--background);
         color: var(--font-color);
@@ -126,14 +142,14 @@
     }
 
     img {
-        height: 0.8rem;
-        width: 0.8rem;
+        height: 1rem;
+        width: 1rem;
     }
 
     .poi-details-table-container {
         max-height: 70%;
         font-size: 1rem;
-        border: solid 1px black;
+        border: solid 1px var(--border-strong);
         border-radius: 5px;
         box-sizing: border-box;
         overflow: auto;
@@ -147,6 +163,6 @@
 
     .poi-details-item:hover,
     .details-selected {
-        background-color: var(--tertiary-warning);
+        background-color: var(--selection-background);
     }
 </style>

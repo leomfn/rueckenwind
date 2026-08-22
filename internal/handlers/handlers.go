@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math"
 	"net/http"
+	"strconv"
 
-	"github.com/leomfn/rueckenwind/internal/models"
 	"github.com/leomfn/rueckenwind/internal/services"
 )
 
@@ -48,73 +49,54 @@ func (h getIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Serve static files
 type staticFilesHandler struct {
-	directory http.Dir
+	fileServer http.Handler
 }
 
 func NewStaticFilesHandler(directory string) *staticFilesHandler {
 	return &staticFilesHandler{
-		directory: http.Dir(directory),
+		fileServer: http.StripPrefix("/assets/", http.FileServer(http.Dir(directory))),
 	}
 }
 
 func (h *staticFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	staticFileserver := http.FileServer(h.directory)
-	http.StripPrefix("/assets/", staticFileserver).ServeHTTP(w, r)
+	h.fileServer.ServeHTTP(w, r)
 }
 
 // General handlers
 
-// General POST handler that reads application/json data
-// TODO: generalize handlers that read json
-// type postHandler struct {
-// 	data interface{}
-// }
+// How long a client should wait before retrying a request that failed because
+// an upstream service was busy.
+const upstreamRetryAfterSeconds = 5
 
-// func (h *postHandler) readJSONPayload(w http.ResponseWriter, r *http.Request) error {
-// 	err := json.NewDecoder(r.Body).Decode(&h.data)
-
-// 	if err != nil {
-// 		http.Error(w, "invalid JSON payload", http.StatusBadRequest)
-// 		return nil
-// 	}
-
-// 	return err
-// }
-
-// General handler to facilitate location handling. It is not a http.Handler
-// itself, but can be embedded in other handlers that expect location data to be
-// sent via a form in a POST request.
-type locationHandler struct {
-	lon, lat float64
+// Reports that an upstream service is temporarily unavailable. This is a 503
+// rather than a 500, because nothing is wrong with the request or with this
+// server, and trying again is likely to work.
+func writeUpstreamBusy(w http.ResponseWriter, message string) {
+	w.Header().Set("Retry-After", strconv.Itoa(upstreamRetryAfterSeconds))
+	http.Error(w, message, http.StatusServiceUnavailable)
 }
 
-// Extracts the location coordinates from the request and stores them in the
-// handler. The error returned can be used as an error message to the client.
-func (h *locationHandler) extractLocation(r *http.Request) error {
-	// TODO: Add input validation
+// Extracts the location coordinates from the request body. Handlers are shared
+// between concurrent requests, so the coordinates are returned rather than
+// stored on the handler. The error returned can be used as an error message to
+// the client.
+func extractLocation(r *http.Request) (coordinates, error) {
 	var coordinatesBody coordinates
 
-	err := json.NewDecoder(r.Body).Decode(&coordinatesBody)
-
-	if err != nil {
-		return errors.New("invalid request body")
+	if err := json.NewDecoder(r.Body).Decode(&coordinatesBody); err != nil {
+		return coordinates{}, errors.New("invalid request body")
 	}
 
-	h.lon = coordinatesBody.Lon
-	h.lat = coordinatesBody.Lat
+	if err := coordinatesBody.validate(); err != nil {
+		return coordinates{}, err
+	}
 
-	return nil
+	return coordinatesBody, nil
 }
 
 // Weather
 type weatherHandler struct {
-	locationHandler
 	service services.WeatherService
-}
-
-type WeatherBody struct {
-	coordinates
-	Category string `json:"category"`
 }
 
 func NewWeatherHandler(apiKey string) *weatherHandler {
@@ -128,17 +110,42 @@ type coordinates struct {
 	Lat float64 `json:"lat"`
 }
 
+// Rejects coordinates that are not finite or outside the valid range, so that
+// they can never be written into an upstream query. Missing fields decode to
+// zero, which is a valid location, so they are accepted.
+func (c coordinates) validate() error {
+	if math.IsNaN(c.Lat) || math.IsNaN(c.Lon) || math.IsInf(c.Lat, 0) || math.IsInf(c.Lon, 0) {
+		return errors.New("coordinates must be finite numbers")
+	}
+
+	if c.Lat < -90 || c.Lat > 90 {
+		return errors.New("latitude must be between -90 and 90")
+	}
+
+	if c.Lon < -180 || c.Lon > 180 {
+		return errors.New("longitude must be between -180 and 180")
+	}
+
+	return nil
+}
+
 func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	err := h.extractLocation(r)
+	location, err := extractLocation(r)
 	if err != nil {
-		http.Error(w, "Could not read location", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	userLocation := models.Location{Lon: models.Coordinate(h.lon), Lat: models.Coordinate(h.lat)}
+	weatherData, err := h.service.GetWeatherForecast(r.Context(), location.Lon, location.Lat)
 
-	weatherData, err := h.service.GetWeatherForecast(float64(userLocation.Lon), float64(userLocation.Lat))
+	if errors.Is(err, services.ErrUpstreamBusy) {
+		log.Println("Could not fetch weather data:", err)
+		writeUpstreamBusy(w, "The forecast is temporarily unavailable")
+		return
+	}
+
 	if err != nil {
+		log.Println("Could not fetch weather data:", err)
 		http.Error(w, "Could not fetch weather data", http.StatusInternalServerError)
 		return
 	}
@@ -149,9 +156,8 @@ func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // POI sites
 type poiData struct {
-	Lon      float64 `json:"lon"`
-	Lat      float64 `json:"lat"`
-	Category string  `json:"category"`
+	coordinates
+	Category string `json:"category"`
 }
 
 type poiHandler struct {
@@ -174,24 +180,26 @@ func (h *poiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var poiResults models.OverpassSites
+	if err := data.validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	switch data.Category {
-	case "camping":
-		poiResults, err = h.service.GetCampingPois(data.Lon, data.Lat)
-	case "water":
-		poiResults, err = h.service.GetDrinkingWaterPois(data.Lon, data.Lat)
-	case "cafe":
-		poiResults, err = h.service.GetCafePois(data.Lon, data.Lat)
-	case "observation":
-		poiResults, err = h.service.GetObservationPois(data.Lon, data.Lat)
-	default:
+	poiResults, err := h.service.GetPois(r.Context(), data.Category, data.Lon, data.Lat)
+
+	if errors.Is(err, services.ErrUnknownCategory) {
 		http.Error(w, "unknown category", http.StatusBadRequest)
 		return
 	}
 
+	if errors.Is(err, services.ErrUpstreamBusy) {
+		log.Println("Could not fetch sites data:", err)
+		writeUpstreamBusy(w, "Places are temporarily unavailable")
+		return
+	}
+
 	if err != nil {
-		log.Println("Cloud not fetch sites data:", err)
+		log.Println("Could not fetch sites data:", err)
 		http.Error(w, "Error fetching sites", http.StatusInternalServerError)
 		return
 	}
