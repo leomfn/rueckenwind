@@ -8,12 +8,27 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
+
+	"github.com/leomfn/rueckenwind/internal/cache"
+	"github.com/leomfn/rueckenwind/internal/models"
 )
+
+func newTestPoiService(url string) *overpassPoiService {
+	return &overpassPoiService{
+		client:      &http.Client{Timeout: overpassRequestTimeout},
+		cache:       cache.New[*overpassResult](poiCacheTtl),
+		url:         url,
+		maxDistance: 25,
+		userAgent:   "test",
+	}
+}
 
 func newTestWeatherService(url string) *openWeatherService {
 	return &openWeatherService{
 		client:           &http.Client{Timeout: weatherRequestTimeout},
+		cache:            cache.New[models.WeatherSummary](weatherCacheTtl),
 		forecastUrl:      url,
 		apiKey:           "test-key",
 		maxForecastCount: 2,
@@ -113,13 +128,68 @@ func TestOverpassQueryTemplates(t *testing.T) {
 	}
 }
 
-func TestGetPoisRejectsUnknownCategory(t *testing.T) {
-	service := &overpassPoiService{
-		client:      &http.Client{Timeout: overpassRequestTimeout},
-		url:         "http://127.0.0.1:0",
-		maxDistance: 25,
-		userAgent:   "test",
+// Nearby locations must share one Overpass call, while distances and bearings
+// stay relative to each caller's exact position.
+func TestGetPoisCachesByGridCell(t *testing.T) {
+	// A single node about 1 degree of latitude north of the callers.
+	body := `{"elements":[{"type":"node","lat":53.0,"lon":10.0,"tags":{"name":"Somewhere"}}]}`
+
+	var upstreamCalls atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamCalls.Add(1)
+		w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	service := newTestPoiService(server.URL)
+
+	// Two callers within the same grid cell (well under 0.01 degrees apart).
+	first, err := service.GetPois(context.Background(), "camping", 10.0, 52.0)
+	if err != nil {
+		t.Fatalf("expected no error, but got %v", err)
 	}
+
+	second, err := service.GetPois(context.Background(), "camping", 10.001, 52.001)
+	if err != nil {
+		t.Fatalf("expected no error, but got %v", err)
+	}
+
+	if upstreamCalls.Load() != 1 {
+		t.Errorf("expected nearby callers to share one upstream call, but got %d", upstreamCalls.Load())
+	}
+
+	if len(first) != 1 || len(second) != 1 {
+		t.Fatalf("expected one POI each, but got %d and %d", len(first), len(second))
+	}
+
+	// The shared cache entry must not flatten the two callers onto the same
+	// distance: the second caller is slightly further north, so slightly closer.
+	if first[0].Distance <= second[0].Distance {
+		t.Errorf("expected distances to be computed per caller, but got %v and %v",
+			first[0].Distance, second[0].Distance)
+	}
+
+	// A caller in a different grid cell must trigger its own request.
+	if _, err := service.GetPois(context.Background(), "camping", 11.0, 52.0); err != nil {
+		t.Fatalf("expected no error, but got %v", err)
+	}
+
+	if upstreamCalls.Load() != 2 {
+		t.Errorf("expected a distant caller to trigger a second call, but got %d", upstreamCalls.Load())
+	}
+
+	// A different category at the same location must not reuse the entry.
+	if _, err := service.GetPois(context.Background(), "cafe", 10.0, 52.0); err != nil {
+		t.Fatalf("expected no error, but got %v", err)
+	}
+
+	if upstreamCalls.Load() != 3 {
+		t.Errorf("expected categories to be cached separately, but got %d calls", upstreamCalls.Load())
+	}
+}
+
+func TestGetPoisRejectsUnknownCategory(t *testing.T) {
+	service := newTestPoiService("http://127.0.0.1:0")
 
 	_, err := service.GetPois(context.Background(), "unicorns", 10, 52)
 

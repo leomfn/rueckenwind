@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/leomfn/rueckenwind/internal/cache"
 	"github.com/leomfn/rueckenwind/internal/models"
 )
 
@@ -23,6 +24,26 @@ const (
 	overpassRequestTimeout = 30 * time.Second
 )
 
+// How long upstream results are reused. OpenStreetMap data changes slowly, the
+// weather forecast is published in three hour blocks.
+const (
+	poiCacheTtl     = time.Hour
+	weatherCacheTtl = 10 * time.Minute
+)
+
+// Before a location is used as a cache key it is snapped to a grid, so that
+// nearby users share one upstream result instead of each triggering their own.
+// One hundredth of a degree is roughly 1.1 km, one fiftieth roughly 2.2 km.
+const (
+	poiCacheGrid     = 0.01
+	weatherCacheGrid = 0.02
+)
+
+// Rounds a coordinate to the nearest multiple of grid.
+func snapToGrid(value float64, grid float64) float64 {
+	return math.Round(value/grid) * grid
+}
+
 // Weather
 type WeatherService interface {
 	GetWeatherForecast(ctx context.Context, lon float64, lat float64) (models.WeatherSummary, error)
@@ -30,6 +51,7 @@ type WeatherService interface {
 
 type openWeatherService struct {
 	client           *http.Client
+	cache            *cache.Cache[models.WeatherSummary]
 	forecastUrl      string
 	apiKey           string
 	maxForecastCount int64
@@ -38,14 +60,30 @@ type openWeatherService struct {
 func NewOpenWeatherService(apiKey string) WeatherService {
 	return &openWeatherService{
 		client:           &http.Client{Timeout: weatherRequestTimeout},
+		cache:            cache.New[models.WeatherSummary](weatherCacheTtl),
 		forecastUrl:      "https://api.openweathermap.org/data/2.5/forecast",
 		apiKey:           apiKey,
 		maxForecastCount: 2,
 	}
 }
 
-// Request weather forecast for next 12 hours in 3-hour blocks (4 items in total)
+// Request weather forecast for next 12 hours in 3-hour blocks (4 items in
+// total). Results are cached per grid cell, so that a moving user or a group of
+// nearby users does not consume one API call per request.
 func (s *openWeatherService) GetWeatherForecast(ctx context.Context, lon float64, lat float64) (models.WeatherSummary, error) {
+	// The snapped location is used for both the cache key and the request, so
+	// that the cached summary always matches the location it was fetched for.
+	queryLat := snapToGrid(lat, weatherCacheGrid)
+	queryLon := snapToGrid(lon, weatherCacheGrid)
+
+	key := fmt.Sprintf("%.2f/%.2f", queryLat, queryLon)
+
+	return s.cache.Get(ctx, key, func(ctx context.Context) (models.WeatherSummary, error) {
+		return s.fetchWeatherForecast(ctx, queryLon, queryLat)
+	})
+}
+
+func (s *openWeatherService) fetchWeatherForecast(ctx context.Context, lon float64, lat float64) (models.WeatherSummary, error) {
 	query := fmt.Sprintf("?lat=%f&lon=%f&appid=%s&units=metric&cnt=%d",
 		lat,
 		lon,
@@ -189,6 +227,7 @@ type PoiService interface {
 
 type overpassPoiService struct {
 	client      *http.Client
+	cache       *cache.Cache[*overpassResult]
 	url         string
 	maxDistance int64
 	userAgent   string
@@ -197,6 +236,7 @@ type overpassPoiService struct {
 func NewOverpassPoiService(maxDistance int64, userAgent string) PoiService {
 	return &overpassPoiService{
 		client:      &http.Client{Timeout: overpassRequestTimeout},
+		cache:       cache.New[*overpassResult](poiCacheTtl),
 		url:         "https://overpass-api.de/api/interpreter",
 		maxDistance: maxDistance,
 		userAgent:   userAgent,
@@ -273,16 +313,26 @@ func (s *overpassPoiService) GetPois(ctx context.Context, category string, lon f
 		return nil, fmt.Errorf("%w: %s", ErrUnknownCategory, category)
 	}
 
-	// Format the coordinates with a fixed number of decimals. The default
-	// float formatting switches to scientific notation for small values, which
+	// The search is centred on the snapped location, so that nearby users share
+	// a cache entry. The circle therefore sits up to about a kilometre off the
+	// user, which can miss POIs sitting exactly at the edge of the radius.
+	//
+	// Format the coordinates with a fixed number of decimals. The default float
+	// formatting switches to scientific notation for small values, which
 	// Overpass does not accept.
-	query := fmt.Sprintf(queryTemplate,
-		s.maxDistance*1000,
-		strconv.FormatFloat(lat, 'f', coordinateDecimals, 64),
-		strconv.FormatFloat(lon, 'f', coordinateDecimals, 64),
-	)
+	queryLat := strconv.FormatFloat(snapToGrid(lat, poiCacheGrid), 'f', coordinateDecimals, 64)
+	queryLon := strconv.FormatFloat(snapToGrid(lon, poiCacheGrid), 'f', coordinateDecimals, 64)
 
-	foundPois, err := s.query(ctx, query)
+	query := fmt.Sprintf(queryTemplate, s.maxDistance*1000, queryLat, queryLon)
+
+	// Only the raw Overpass response is cached. Distances and bearings are
+	// derived per request from the caller's exact location, so sharing a cache
+	// entry never costs accuracy in what the user is shown.
+	foundPois, err := s.cache.Get(ctx, category+"/"+queryLat+"/"+queryLon,
+		func(ctx context.Context) (*overpassResult, error) {
+			return s.query(ctx, query)
+		})
+
 	if err != nil {
 		log.Printf("Could not fetch POIs of category %s", category)
 		return nil, err

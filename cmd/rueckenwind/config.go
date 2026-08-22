@@ -13,12 +13,36 @@ var (
 	staticFilesDir      string = "./frontend/dist"
 	maxOverpassDistance int64  = 25
 	overpassUserAgent   string = "rueckenwind"
+	rateLimitPerMinute  int64  = 60
+	rateLimitBurst      int64  = 15
+	trustProxyHeaders   bool   = false
 	owmApiKey           string
 	debug               bool = false
 	domain              string
 	trackingUrl         string
 	trackingId          string
 )
+
+// Reads an environment variable that must be a positive integer, falling back
+// to the given default when it is not set.
+func positiveIntEnv(name string, fallback int64) int64 {
+	value, exists := os.LookupEnv(name)
+	if !exists {
+		log.Printf("%s environment variable not set, using default value: %d", name, fallback)
+		return fallback
+	}
+
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		log.Fatalf("Environment variable %s must be an integer", name)
+	}
+
+	if parsed < 1 {
+		log.Fatalf("Environment variable %s must be greater than zero", name)
+	}
+
+	return parsed
+}
 
 func init() {
 	var (
@@ -60,6 +84,14 @@ func init() {
 		log.Printf("OVERPASS_USER_AGENT environment variable not set, using default value: %s", overpassUserAgent)
 	} else {
 		overpassUserAgent = overpassUserAgentEnv
+	}
+
+	rateLimitPerMinute = positiveIntEnv("RATE_LIMIT_PER_MINUTE", rateLimitPerMinute)
+	rateLimitBurst = positiveIntEnv("RATE_LIMIT_BURST", rateLimitBurst)
+
+	trustProxyHeaders = strings.ToLower(os.Getenv("TRUST_PROXY_HEADERS")) == "true"
+	if trustProxyHeaders {
+		log.Println("Trusting X-Forwarded-For for client identification")
 	}
 
 	owmApiKey, exists = os.LookupEnv("OPEN_WEATHER_MAP_API_KEY")
