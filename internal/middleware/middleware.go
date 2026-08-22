@@ -58,16 +58,11 @@ func (m *sameSiteMiddleware) MiddlewareFunc(next http.Handler) http.Handler {
 			return
 		}
 
-		refDomain := m.domain
-		if m.debug {
-			refDomain = "localhost"
-		}
-
 		refHeader := r.Referer()
 
 		requestReferrerURL, err := url.Parse(refHeader)
 
-		if err != nil || requestReferrerURL.Hostname() != refDomain {
+		if err != nil || requestReferrerURL.Hostname() != m.domain {
 			log.Printf("Access to %s blocked, invalid referrer '%s'", r.URL.Path, refHeader)
 			http.Error(w, "Invalid Referer", http.StatusForbidden)
 			return

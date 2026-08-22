@@ -74,10 +74,11 @@ type Wind struct {
 }
 
 func (w Wind) Scale() float64 {
+	// Both the cap and the speed are in km/h.
 	maxSpeed := 80.0
 	speed := w.Speed * 3.6
 
-	if w.Speed > maxSpeed {
+	if speed > maxSpeed {
 		speed = maxSpeed
 	}
 
@@ -191,32 +192,6 @@ type WeatherSummary struct {
 	SunsetTime string `json:"sunset"`
 }
 
-type poi struct {
-	location Location
-	distance float64
-	bearing  float64
-}
-
-type campingSite struct {
-	poi
-	name         string
-	address      string
-	website      string
-	openingHours string
-}
-
-type drinkingWaterSite struct {
-	poi
-}
-
-type cafeSite struct {
-	poi
-	name         string
-	address      string
-	website      string
-	openingHours string
-}
-
 type overpassSite struct {
 	Bearing       float64 `json:"bearing"`
 	Distance      float64 `json:"distance"`
@@ -229,21 +204,21 @@ type overpassSite struct {
 	Address       string  `json:"address"`
 }
 
-type Pois struct {
-	pois []poi
-}
+// POIs are thinned out by bearing, so that only one POI remains per bearing
+// 'bucket'. 360 degrees are split into 12 buckets of 30 degrees each.
+//
+// TODO: Find a better solution for overlapping POIs at bucket boundaries.
+// TODO: Maybe find a solution for close-to-nearest POIs not being shown because
+// bucket is already full.
+const bearingBuckets = 12
 
-type campingSites struct {
-	poisInterface
-}
+// Maps a bearing in [-180, 180] onto a bucket index. A bearing of exactly 180
+// degrees would otherwise land one past the last bucket, so it is folded back
+// onto the first one, which covers the same direction.
+func bearingBucket(bearing float64) int {
+	bucket := int((bearing + 180) / (360 / bearingBuckets))
 
-type poisInterface interface {
-	sortByDistance()
-	filterByBearing()
-}
-
-func newCampingSites() poisInterface {
-	return nil
+	return ((bucket % bearingBuckets) + bearingBuckets) % bearingBuckets
 }
 
 type OverpassSites []overpassSite
@@ -252,46 +227,6 @@ func (p *OverpassSites) SortByDistance() {
 	sort.Slice(*p, func(i, j int) bool {
 		return (*p)[i].Distance < (*p)[j].Distance
 	})
-}
-
-func (p *Pois) sortByDistance() {
-	sort.Slice(p.pois, func(i, j int) bool {
-		return p.pois[i].distance < p.pois[j].distance
-	})
-}
-
-// POIs are filtered by bearing angle, so that only one POI remains per bearing
-// 'bucket'. 360 degrees are split into 12 buckets of 30 degrees each.
-//
-// TODO: Find a better solution for overlapping POIs at bucket boundaries.
-// TODO: Maybe find a solution for close-to-nearest POIs not being shown because
-// bucket is already full.
-func (p *Pois) filterByBearing() {
-	angleFractions := map[int]bool{
-		0:  false,
-		1:  false,
-		2:  false,
-		3:  false,
-		4:  false,
-		5:  false,
-		6:  false,
-		7:  false,
-		8:  false,
-		9:  false,
-		10: false,
-		11: false,
-	}
-
-	var filteredPois Pois
-	for _, poi := range p.pois {
-		angleFraction := int((poi.bearing + 180) / 30)
-		if !angleFractions[angleFraction] {
-			filteredPois.pois = append(filteredPois.pois, poi)
-			angleFractions[angleFraction] = true
-		}
-	}
-
-	*p = filteredPois
 }
 
 func NewSite(siteLocation Location, referenceLocation Location, maxDistance int64) overpassSite {
@@ -319,28 +254,15 @@ func NewSite(siteLocation Location, referenceLocation Location, maxDistance int6
 }
 
 func (sites *OverpassSites) FilterByBearing() {
-	angleFractions := map[int]bool{
-		0:  false,
-		1:  false,
-		2:  false,
-		3:  false,
-		4:  false,
-		5:  false,
-		6:  false,
-		7:  false,
-		8:  false,
-		9:  false,
-		10: false,
-		11: false,
-	}
+	var taken [bearingBuckets]bool
 
 	var filteredSites OverpassSites
 
 	for _, site := range *sites {
-		angleFraction := int((site.Bearing + 180) / 30)
-		if !angleFractions[angleFraction] {
+		bucket := bearingBucket(site.Bearing)
+		if !taken[bucket] {
 			filteredSites = append(filteredSites, site)
-			angleFractions[angleFraction] = true
+			taken[bucket] = true
 		}
 	}
 

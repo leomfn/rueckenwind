@@ -19,8 +19,6 @@ var (
 	owmApiKey           string
 	debug               bool = false
 	domain              string
-	trackingUrl         string
-	trackingId          string
 )
 
 // Reads an environment variable that must be a positive integer, falling back
@@ -104,17 +102,6 @@ func init() {
 
 	if !exists {
 		log.Fatal("Environment variable DOMAIN not found")
-	}
-
-	// Disable tracking if variable is not set
-	trackingUrl, exists = os.LookupEnv("TRACKING_URL")
-
-	if exists && trackingUrl != "" {
-		trackingId, exists = os.LookupEnv("TRACKING_ID")
-
-		if !exists {
-			log.Fatal("Environment variable TRACKING_ID not found")
-		}
 	}
 
 	debugEnv := strings.ToLower(os.Getenv("DEBUG"))

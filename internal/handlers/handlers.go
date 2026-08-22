@@ -48,38 +48,20 @@ func (h getIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Serve static files
 type staticFilesHandler struct {
-	directory http.Dir
+	fileServer http.Handler
 }
 
 func NewStaticFilesHandler(directory string) *staticFilesHandler {
 	return &staticFilesHandler{
-		directory: http.Dir(directory),
+		fileServer: http.StripPrefix("/assets/", http.FileServer(http.Dir(directory))),
 	}
 }
 
 func (h *staticFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	staticFileserver := http.FileServer(h.directory)
-	http.StripPrefix("/assets/", staticFileserver).ServeHTTP(w, r)
+	h.fileServer.ServeHTTP(w, r)
 }
 
 // General handlers
-
-// General POST handler that reads application/json data
-// TODO: generalize handlers that read json
-// type postHandler struct {
-// 	data interface{}
-// }
-
-// func (h *postHandler) readJSONPayload(w http.ResponseWriter, r *http.Request) error {
-// 	err := json.NewDecoder(r.Body).Decode(&h.data)
-
-// 	if err != nil {
-// 		http.Error(w, "invalid JSON payload", http.StatusBadRequest)
-// 		return nil
-// 	}
-
-// 	return err
-// }
 
 // Extracts the location coordinates from the request body. Handlers are shared
 // between concurrent requests, so the coordinates are returned rather than
