@@ -256,7 +256,9 @@ func NewSite(siteLocation Location, referenceLocation Location, maxDistance int6
 func (sites *OverpassSites) FilterByBearing() {
 	var taken [bearingBuckets]bool
 
-	var filteredSites OverpassSites
+	// Not a nil slice, so that a location without any POIs is sent to the client
+	// as an empty list rather than as null.
+	filteredSites := OverpassSites{}
 
 	for _, site := range *sites {
 		bucket := bearingBucket(site.Bearing)

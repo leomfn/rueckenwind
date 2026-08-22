@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
@@ -127,6 +128,22 @@ func TestOverpassSites(t *testing.T) {
 			t.Errorf("unexpected survivors: %q and %q", sites[0].Name, sites[1].Name)
 		}
 	})
+}
+
+// An empty result must reach the client as [] rather than null, which the
+// frontend cannot iterate over.
+func TestFilterByBearingEncodesEmptyResultAsList(t *testing.T) {
+	sites := OverpassSites{}
+	sites.FilterByBearing()
+
+	encoded, err := json.Marshal(sites)
+	if err != nil {
+		t.Fatalf("expected no error, but got %v", err)
+	}
+
+	if string(encoded) != "[]" {
+		t.Errorf("expected [], but got %s", encoded)
+	}
 }
 
 func TestBearingBucket(t *testing.T) {
