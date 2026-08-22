@@ -138,17 +138,22 @@
         border-color: var(--tertiary-warning);
     }
 
+    /* The border carries the warning; the text stays in the regular font
+     * colour, which is the only one that reads at this size. */
     .compass-permission {
         position: fixed;
         top: 1rem;
         left: 50%;
         transform: translateX(-50%);
+        width: auto;
+        height: auto;
+        min-height: 44px;
         max-width: 90vw;
         padding: 0.4rem 0.75rem;
         border: 1px solid var(--tertiary-warning);
-        border-radius: 0.25rem;
-        background-color: var(--background);
-        color: var(--tertiary-warning);
+        border-radius: 5px;
+        background-color: var(--secondary-background);
+        color: var(--font-color);
         font-size: small;
         text-align: center;
         z-index: 1500;

@@ -3,6 +3,7 @@
     import websiteUrl from "../../static/images/globe.svg";
 
     import {
+        categoryLabel,
         pois,
         poiSelectionChoices,
         selectedPoi,
@@ -28,9 +29,14 @@
 
 <div class="poi-details">
     <div class="poi-details-table-container">
+        {#if ($pois[$selectedPoi] ?? []).length === 0}
+            <p class="poi-details-empty">
+                No {categoryLabel($selectedPoi)} found nearby.
+            </p>
+        {/if}
         <table>
             <tbody>
-                {#each $pois[$selectedPoi] as poi, index (poi)}
+                {#each $pois[$selectedPoi] ?? [] as poi, index (poi)}
                     <tr
                         class="poi-details-item {index ===
                         $poiSelectionChoices[$selectedPoi].detailsIndex
@@ -96,8 +102,15 @@
         font-size: smaller;
     }
 
+    /* Rows are tap targets, so they need enough height to hit while riding. */
     td {
-        padding: 0.1rem 0.5rem;
+        padding: 0.6rem 0.5rem;
+    }
+
+    .poi-details-empty {
+        margin: 0;
+        padding: 0.6rem 0.5rem;
+        font-size: smaller;
     }
 
     a.button {

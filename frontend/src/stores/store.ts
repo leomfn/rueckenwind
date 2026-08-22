@@ -29,57 +29,80 @@ export const userLocation = writable<Location>();
 
 export const weatherData = writable<WeatherData | undefined>();
 
-// Set when a request fails, so that a failure is visible instead of leaving the
-// display silently empty.
-export const dataError = writable<string>("");
+// A failure reads differently from an empty result, so the message carries
+// which of the two it is.
+export type NoticeTone = "error" | "info";
+
+export interface Notice {
+    message: string;
+    tone: NoticeTone;
+}
+
+// Set when something happened that the display alone cannot show, so that it is
+// visible instead of leaving the screen silently empty.
+export const notice = writable<Notice | undefined>();
 
 // How long a message stays on screen before it removes itself.
-const errorDismissDelay = 8000;
+const noticeDismissDelay = 8000;
 
-let errorTimer: number | undefined;
+let noticeTimer: number | undefined;
 
 // Shows a message and schedules its removal. A failure is often not followed by
 // a success, so the message has to expire on its own rather than waiting for
 // one to clear it.
-export const showError = (message: string): void => {
-    if (errorTimer !== undefined) {
-        window.clearTimeout(errorTimer);
+const showNotice = (message: string, tone: NoticeTone): void => {
+    if (noticeTimer !== undefined) {
+        window.clearTimeout(noticeTimer);
     }
 
-    dataError.set(message);
+    notice.set({ message, tone });
 
-    errorTimer = window.setTimeout(() => {
-        errorTimer = undefined;
-        dataError.set("");
-    }, errorDismissDelay);
+    noticeTimer = window.setTimeout(() => {
+        noticeTimer = undefined;
+        notice.set(undefined);
+    }, noticeDismissDelay);
 };
 
-export const clearError = (): void => {
-    if (errorTimer !== undefined) {
-        window.clearTimeout(errorTimer);
-        errorTimer = undefined;
+export const showError = (message: string): void => showNotice(message, "error");
+
+export const showInfo = (message: string): void => showNotice(message, "info");
+
+export const clearNotice = (): void => {
+    if (noticeTimer !== undefined) {
+        window.clearTimeout(noticeTimer);
+        noticeTimer = undefined;
     }
 
-    dataError.set("");
+    notice.set(undefined);
 };
 
 export const compassStatus = writable<CompassStatus>("pending");
 export const compassRotation = writable<number>(0);
 
-export const poiSelectionChoices = writable<Record<string, {img: string, detailsIndex?: number}>>({
+// The label names the category in messages, so that a notice can say what was
+// searched for rather than just that nothing was found.
+export const poiSelectionChoices = writable<Record<string, {img: string, label: string, detailsIndex?: number}>>({
     camping: {
         img: campsiteUrl,
+        label: "campsites"
     },
     water: {
-        img: waterUrl
+        img: waterUrl,
+        label: "drinking water"
     },
     cafe: {
-        img: coffeeUrl
+        img: coffeeUrl,
+        label: "cafés"
     },
     observation: {
-        img: observationUrl
+        img: observationUrl,
+        label: "observation points"
     }
 })
+
+// Names a category the way it should read in a sentence.
+export const categoryLabel = (category: string): string =>
+    get(poiSelectionChoices)[category]?.label ?? "places";
 
 // Loads the POIs of a category, reusing what has already been fetched for the
 // current location.
@@ -98,11 +121,17 @@ export const loadPois = async (category: string): Promise<void> => {
 
     // This is a deliberate retry when a previous attempt failed, so any message
     // still on screen is stale.
-    clearError();
+    clearNotice();
 
     try {
         const found = await fetchPois(category, location);
         pois.update((current) => ({ ...current, [category]: found }));
+
+        // Nothing is drawn on the compass for an empty result, which otherwise
+        // looks exactly like a search that silently failed.
+        if (found.length === 0) {
+            showInfo(`No ${categoryLabel(category)} found nearby.`);
+        }
     } catch (error) {
         console.error(error);
         showError(

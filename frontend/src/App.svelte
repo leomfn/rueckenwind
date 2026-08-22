@@ -17,10 +17,10 @@
         showPoiDetails,
         poisLoading,
         weatherData,
-        dataError,
+        notice,
         invalidatePois,
         showError,
-        clearError,
+        clearNotice,
         compassStatus,
     } from "./stores/store";
     import { fetchWeather, type Location } from "./lib/api";
@@ -133,17 +133,17 @@
     <ButtonBar />
 </div>
 
-{#if $dataError}
+{#if $notice}
     <div
-        class="data-error"
+        class="notice notice-{$notice.tone}"
         class:below-compass-notice={$compassStatus === "needs-permission" ||
             $compassStatus === "unavailable"}
-        role="alert"
+        role={$notice.tone === "error" ? "alert" : "status"}
     >
-        <span>{$dataError}</span>
+        <span>{$notice.message}</span>
         <button
-            class="data-error-dismiss"
-            on:click={clearError}
+            class="notice-dismiss"
+            on:click={clearNotice}
             aria-label="Dismiss message">×</button
         >
     </div>
@@ -159,8 +159,9 @@
 
 <style>
     /* Anchored to the top, because the bottom of the screen belongs to the
-     * button bar. */
-    .data-error {
+     * button bar. The border carries the tone; the text stays in the regular
+     * font colour, which is the only one that reads at this size. */
+    .notice {
         position: fixed;
         left: 50%;
         top: 1rem;
@@ -170,25 +171,34 @@
         gap: 0.5rem;
         max-width: 90vw;
         padding: 0.5rem 0.5rem 0.5rem 0.75rem;
-        border: 1px solid var(--tertiary-warning);
-        border-radius: 0.25rem;
-        background-color: var(--background);
-        color: var(--tertiary-warning);
+        border-style: solid;
+        border-width: 1px;
+        border-radius: 5px;
+        background-color: var(--secondary-background);
+        color: var(--font-color);
         font-size: small;
         text-align: left;
         z-index: 2000;
     }
 
+    .notice-error {
+        border-color: var(--tertiary-warning);
+    }
+
+    .notice-info {
+        border-color: var(--current);
+    }
+
     /* Moves clear of the compass permission notice, which sits in the same
      * place. */
-    .data-error.below-compass-notice {
+    .notice.below-compass-notice {
         top: 4rem;
     }
 
-    .data-error-dismiss {
+    .notice-dismiss {
         flex-shrink: 0;
-        width: 1.5rem;
-        height: 1.5rem;
+        width: 1.75rem;
+        height: 1.75rem;
         padding: 0;
         border: none;
         background: none;
