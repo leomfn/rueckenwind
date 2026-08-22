@@ -119,7 +119,7 @@ func (h *weatherHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	weatherData, err := h.service.GetWeatherForecast(location.Lon, location.Lat)
+	weatherData, err := h.service.GetWeatherForecast(r.Context(), location.Lon, location.Lat)
 	if err != nil {
 		http.Error(w, "Could not fetch weather data", http.StatusInternalServerError)
 		return
@@ -160,13 +160,13 @@ func (h *poiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch data.Category {
 	case "camping":
-		poiResults, err = h.service.GetCampingPois(data.Lon, data.Lat)
+		poiResults, err = h.service.GetCampingPois(r.Context(), data.Lon, data.Lat)
 	case "water":
-		poiResults, err = h.service.GetDrinkingWaterPois(data.Lon, data.Lat)
+		poiResults, err = h.service.GetDrinkingWaterPois(r.Context(), data.Lon, data.Lat)
 	case "cafe":
-		poiResults, err = h.service.GetCafePois(data.Lon, data.Lat)
+		poiResults, err = h.service.GetCafePois(r.Context(), data.Lon, data.Lat)
 	case "observation":
-		poiResults, err = h.service.GetObservationPois(data.Lon, data.Lat)
+		poiResults, err = h.service.GetObservationPois(r.Context(), data.Lon, data.Lat)
 	default:
 		http.Error(w, "unknown category", http.StatusBadRequest)
 		return

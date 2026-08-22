@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,7 +17,7 @@ import (
 // between concurrent requests can be detected.
 type stubWeatherService struct{}
 
-func (stubWeatherService) GetWeatherForecast(lon float64, lat float64) (models.WeatherSummary, error) {
+func (stubWeatherService) GetWeatherForecast(ctx context.Context, lon float64, lat float64) (models.WeatherSummary, error) {
 	// Echo the coordinates back so the caller can verify it got its own answer.
 	return models.WeatherSummary{
 		CurrentTemperature: int64(lat),

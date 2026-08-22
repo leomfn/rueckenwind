@@ -2,39 +2,48 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/leomfn/rueckenwind/internal/models"
 )
 
+const (
+	weatherRequestTimeout = 10 * time.Second
+	// Overpass queries are heavy and the public instances are often busy, so
+	// they get a more generous budget than the weather API.
+	overpassRequestTimeout = 30 * time.Second
+)
+
 // Weather
 type WeatherService interface {
-	GetWeatherForecast(lon float64, lat float64) (models.WeatherSummary, error)
+	GetWeatherForecast(ctx context.Context, lon float64, lat float64) (models.WeatherSummary, error)
 }
 
 type openWeatherService struct {
+	client           *http.Client
 	forecastUrl      string
 	apiKey           string
 	maxForecastCount int64
-	forecastInterval int64 // in hours
 }
 
 func NewOpenWeatherService(apiKey string) WeatherService {
 	return &openWeatherService{
+		client:           &http.Client{Timeout: weatherRequestTimeout},
 		forecastUrl:      "https://api.openweathermap.org/data/2.5/forecast",
 		apiKey:           apiKey,
 		maxForecastCount: 2,
-		forecastInterval: 3,
 	}
 }
 
 // Request weather forecast for next 12 hours in 3-hour blocks (4 items in total)
-func (s *openWeatherService) GetWeatherForecast(lon float64, lat float64) (models.WeatherSummary, error) {
+func (s *openWeatherService) GetWeatherForecast(ctx context.Context, lon float64, lat float64) (models.WeatherSummary, error) {
 	query := fmt.Sprintf("?lat=%f&lon=%f&appid=%s&units=metric&cnt=%d",
 		lat,
 		lon,
@@ -42,18 +51,36 @@ func (s *openWeatherService) GetWeatherForecast(lon float64, lat float64) (model
 		s.maxForecastCount,
 	)
 
-	resp, err := http.Get(s.forecastUrl + query)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.forecastUrl+query, nil)
+	if err != nil {
+		log.Println("Could not build openweather request:", err)
+		return models.WeatherSummary{}, err
+	}
+
+	resp, err := s.client.Do(req)
 	if err != nil {
 		log.Println("Error when fetching weather from openweather:", err)
 		return models.WeatherSummary{}, err
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Openweather returned non-OK status: %d", resp.StatusCode)
+		return models.WeatherSummary{}, fmt.Errorf("openweather returned status %d", resp.StatusCode)
+	}
+
 	var weatherForecast models.WeatherForecast
 
 	if err := json.NewDecoder(resp.Body).Decode(&weatherForecast); err != nil {
 		log.Println("Error when unmarshalling openweathermap response:", err)
 		return models.WeatherSummary{}, err
+	}
+
+	// The summary pairs the current forecast block with the following one, so a
+	// shorter list cannot be summarized and must not be indexed into.
+	if len(weatherForecast.List) < 2 {
+		log.Printf("Openweather returned %d forecast entries, expected at least 2", len(weatherForecast.List))
+		return models.WeatherSummary{}, fmt.Errorf("openweather returned %d forecast entries", len(weatherForecast.List))
 	}
 
 	currentWeather := weatherForecast.List[0]
@@ -132,13 +159,14 @@ type overpassResult struct {
 }
 
 type PoiService interface {
-	GetCampingPois(lon float64, lat float64) (models.OverpassSites, error)
-	GetDrinkingWaterPois(lon float64, lat float64) (models.OverpassSites, error)
-	GetCafePois(lon float64, lat float64) (models.OverpassSites, error)
-	GetObservationPois(lon float64, lat float64) (models.OverpassSites, error)
+	GetCampingPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error)
+	GetDrinkingWaterPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error)
+	GetCafePois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error)
+	GetObservationPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error)
 }
 
 type overpassPoiService struct {
+	client      *http.Client
 	url         string
 	maxDistance int64
 	userAgent   string
@@ -146,14 +174,15 @@ type overpassPoiService struct {
 
 func NewOverpassPoiService(maxDistance int64, userAgent string) PoiService {
 	return &overpassPoiService{
+		client:      &http.Client{Timeout: overpassRequestTimeout},
 		url:         "https://overpass-api.de/api/interpreter",
 		maxDistance: maxDistance,
 		userAgent:   userAgent,
 	}
 }
 
-func (s *overpassPoiService) query(query string) (*overpassResult, error) {
-	req, err := http.NewRequest(http.MethodPost, s.url, bytes.NewBuffer([]byte(query)))
+func (s *overpassPoiService) query(ctx context.Context, query string) (*overpassResult, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.url, bytes.NewBuffer([]byte(query)))
 	if err != nil {
 		log.Println("Could not build Overpass request")
 		return nil, err
@@ -164,7 +193,7 @@ func (s *overpassPoiService) query(query string) (*overpassResult, error) {
 	// self-hosters can set their own. See https://overpass-api.de/.
 	req.Header.Set("User-Agent", s.userAgent)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.client.Do(req)
 
 	if err != nil {
 		log.Println("Could not fetch POIs")
@@ -214,13 +243,13 @@ func (s *overpassPoiService) convertOverpassResults(pois *overpassResult, lon fl
 	return sites
 }
 
-func (s *overpassPoiService) GetCampingPois(lon float64, lat float64) (models.OverpassSites, error) {
+func (s *overpassPoiService) GetCampingPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error) {
 	query := fmt.Sprintf(`[out:json];nwr["tourism"="camp_site"]["tent"!="no"](around:%d,%v,%v);out geom;`,
 		s.maxDistance*1000,
 		lat,
 		lon)
 
-	foundPois, err := s.query(query)
+	foundPois, err := s.query(ctx, query)
 
 	if err != nil {
 		log.Println("Could not fetch campsites")
@@ -234,13 +263,13 @@ func (s *overpassPoiService) GetCampingPois(lon float64, lat float64) (models.Ov
 	return pois, nil
 }
 
-func (s *overpassPoiService) GetDrinkingWaterPois(lon float64, lat float64) (models.OverpassSites, error) {
+func (s *overpassPoiService) GetDrinkingWaterPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error) {
 	query := fmt.Sprintf(`[out:json];(nwr["amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v);nwr["drinking_water"="yes"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v);nwr["disused:amenity"="drinking_water"]["access"!="permissive"]["access"!="private"](around:%d,%v,%v););out geom;`,
 		s.maxDistance*1000, lat, lon,
 		s.maxDistance*1000, lat, lon,
 		s.maxDistance*1000, lat, lon)
 
-	foundPois, err := s.query(query)
+	foundPois, err := s.query(ctx, query)
 
 	if err != nil {
 		log.Println("Could not fetch drinking water")
@@ -254,13 +283,13 @@ func (s *overpassPoiService) GetDrinkingWaterPois(lon float64, lat float64) (mod
 	return pois, nil
 }
 
-func (s *overpassPoiService) GetCafePois(lon float64, lat float64) (models.OverpassSites, error) {
+func (s *overpassPoiService) GetCafePois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error) {
 	query := fmt.Sprintf(`[out:json];nwr["amenity"="cafe"](around:%d,%v,%v);out geom;`,
 		s.maxDistance*1000,
 		lat,
 		lon)
 
-	foundPois, err := s.query(query)
+	foundPois, err := s.query(ctx, query)
 
 	if err != nil {
 		log.Println("Could not fetch cafes")
@@ -274,7 +303,7 @@ func (s *overpassPoiService) GetCafePois(lon float64, lat float64) (models.Overp
 	return pois, nil
 }
 
-func (s *overpassPoiService) GetObservationPois(lon float64, lat float64) (models.OverpassSites, error) {
+func (s *overpassPoiService) GetObservationPois(ctx context.Context, lon float64, lat float64) (models.OverpassSites, error) {
 	query := fmt.Sprintf(`[out:json];(nwr["man_made"="tower"]["tower:type"="observation"](around:%d,%v,%v);nwr["leisure"="bird_hide"](around:%d,%v,%v););out geom;`,
 		s.maxDistance*1000,
 		lat,
@@ -283,7 +312,7 @@ func (s *overpassPoiService) GetObservationPois(lon float64, lat float64) (model
 		lat,
 		lon)
 
-	foundPois, err := s.query(query)
+	foundPois, err := s.query(ctx, query)
 
 	if err != nil {
 		log.Println("Could not fetch observation sites")

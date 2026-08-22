@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/leomfn/rueckenwind/internal/middleware"
 )
@@ -32,7 +33,13 @@ func (s *server) Start() {
 	server := &http.Server{
 		Addr:    s.address,
 		Handler: s.mux,
-		// TODO: maybe add ReadTimeout, WriteTimeout
+		// Bound how long a single connection may occupy the server, so that slow
+		// or stalled clients cannot pile up. WriteTimeout has to accommodate the
+		// slowest upstream call (Overpass) plus a margin.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      40 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	log.Printf("Starting server on %v", s.address)
